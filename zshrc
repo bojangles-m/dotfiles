@@ -16,8 +16,10 @@ SHELL=($HOME/dotfiles)
 SETTINGS=($SHELL/settings)
 
 source $SETTINGS/run.zsh
-source $SETTINGS/terminal.zsh
-source $SETTINGS/path.zsh
+source $SETTINGS/terminal.colors.zsh
+source $SETTINGS/paths.zsh
+source $SETTINGS/options.zsh
+source $SETTINGS/keybindings.zsh
 
 # ------------------------------------------
 # Load prompt theme
