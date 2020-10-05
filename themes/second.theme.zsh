@@ -1,14 +1,12 @@
 source $THEMES/prompt.zsh
 
-# Set up the prmary prompt (with git branch name)
-setopt PROMPT_SUBST
-
 NL=$'\n'
 firstLine="[ ${MAGENTA}%~${GREEN}"
 firstLine+='$(git_branch)'
 firstLine+="${WHITE} ]"
 secondLine=" ❯ ${RESET}"
 
+# Set up the prmary prompt (with git branch name)
 PROMPT=$NL$firstLine$NL$secondLine
 
 # right prompt

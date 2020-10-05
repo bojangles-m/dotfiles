@@ -8,5 +8,4 @@ firstLine+="${WHITE}]${RESET}"
 secondLine="${WHITE} ❯ ${RESET}"
 
 # Set up the prmary prompt (with git branch name)
-setopt PROMPT_SUBST
 PS1=$NL$firstLine$NL$secondLine

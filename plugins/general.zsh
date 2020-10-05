@@ -18,9 +18,3 @@ alias ..2='cd ../..'
 alias ..3='cd ../../..'
 alias ..4='cd ../../../..'
 alias ..5='cd ../../../../..'
-
-# get your IP address
-alias myip="curl http://ipecho.net/plain; echo"
-
-# quick conversion to pdf
-# alias pdf='libreoffice --headless --invisible --convert-to pdf'

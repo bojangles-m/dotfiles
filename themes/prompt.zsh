@@ -23,3 +23,6 @@ for COLOR in RED GREEN YELLOW BLUE MAGENTA CYAN BLACK WHITE; do
 done
 eval GREY='%F{238}'
 eval RESET='%f'
+
+# Allow functions in (R)PROMPT
+setopt PROMPT_SUBST
