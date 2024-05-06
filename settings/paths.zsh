@@ -8,14 +8,12 @@ do
 done
 
 # Pick up GIT binaries
-if [[ -d "/usr/local/git/bin" ]]
-then
+if [[ -d "/usr/local/git/bin" ]] then
     PATH=/usr/local/git/bin:$PATH
 fi
 
 # Pick up NPM-installed binaries
-if [[ -d "/usr/local/share/npm/bin" ]]
-then
+if [[ -d "/usr/local/share/npm/bin" ]] then
     PATH=/usr/local/share/npm/bin:$PATH
 fi
 
@@ -23,3 +21,15 @@ fi
 typeset -U PATH
 
 export PATH
+
+# set mysql@5.7 in your PATH
+export PATH="/usr/local/opt/mysql@5.7/bin:$PATH"
+
+# set php@7.4 in your PATH
+export PATH="/usr/local/opt/php@7.4/bin:$PATH"
+export PATH="/usr/local/opt/php@7.4/sbin:$PATH"
+
+# set symfony in your PATH
+export PATH="$HOME/.symfony/bin:$PATH"
+
+export PATH="$PATH:$HOME/Frontify/docker/bin"

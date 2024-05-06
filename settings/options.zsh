@@ -52,3 +52,6 @@ setopt hash_list_all        # Whenever a command completion is attempted, make s
 # setopt long_list_jobs       # List jobs in long format, display PID when suspending processes as well
 
 # setopt mark_dirs            # Append a trailing `/' to all directory names resulting from globbing
+
+# If set, do not print any hints about changing Homebrew’s behaviour with environment variables.
+export HOMEBREW_NO_ENV_HINTS=1

@@ -22,3 +22,7 @@ alias myip="curl http://ipecho.net/plain; echo"
 
 # Disk usage
 alias da='du -sch'
+
+# SL for Visual Studo Code 
+alias vscode="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+
