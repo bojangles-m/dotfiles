@@ -1,26 +1,59 @@
 # git aliases
 alias gch='git checkout'
 alias gc='git clone'
-alias gb='git branch'
-alias gm='git merge'
 alias gd='git diff | mate'
-alias gf='git fetch'
-alias gpl='git pull'
-alias gpu='git push'
 alias gs='git status'
 alias gss='git status -s'
 alias gadd='git add .'
-alias gcm='git commit -am'
-alias gpd='git pull origin develop'
-alias gpm='git pull origin master'
-alias gfd='git fetch origin develop:develop'
-alias gfm='git fetch origin master:master'
-alias gfp='git fetch origin preview:preview'
-alias grb='git rebase'
+alias gcm='git commit -m'
+alias gcam='git commit -am'
 alias grs='git reset'
 alias gl='git log'
 
-# making git stash faster to use
+# git push
+alias gpu='git push'
+alias gpuup='git push --set-upstream origin'
+
+# git fetch
+alias gf='git fetch'
+alias gfo='git fetch origin'
+alias gfp='git fetch origin preview:preview'
+alias gfd='git fetch origin develop:develop'
+
+# git branch
+alias gb='git branch'
+alias gbdchk="git branch -vv | awk '/: gone]/ {print \$1}'"
+alias gbdall="git branch -vv | awk '/: gone]/ {print \$1}' | xargs git branch -D"
+
+# git merge
+alias gm='git merge'
+alias gmm='git merge main'
+alias gmom='git merge origin main'
+
+# git pull
+alias gpl='git pull'
+alias gpm='git pull origin'
+alias gpd='git pull origin develop'
+
+# git remote
+alias gr='git remote'
+alias gru='git remote update'
+alias grp='git remote prune origin'
+
+# To rebase master into gfeature branch
+# git rebase master
+# git rebase and squash helpers
+alias grb='git rebase'
+
+re='^[0-9]+$'
+function gsq() {
+    if [[ $1 =~ $re ]] ; then
+        echo "Is number: $1"
+        git rebase -i HEAD~$1
+    fi
+}
+
+# git stash helper function
 function gst() {
     if [ -z "$1" ]; then        
         git stash
@@ -40,5 +73,7 @@ function gst() {
         else 
             git stash pop stash@{"$2"}
         fi
+    elif [ "$1" = "msg" ]; then
+        git stash push -m $2
     fi
 }
