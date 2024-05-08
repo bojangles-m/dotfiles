@@ -23,13 +23,13 @@ alias ..5='cd ../../../../..'
 alias root='sudo -i'
 alias su='sudo -i'
 
-
 # DISK USAGE
-alias du1='du -d 1'
+alias da='sudo du -sch'
+alias du1='sudo du -d 1'
 
 # Grabs the disk usage in the current directory
-alias usage='du -ch | grep total'
+alias usage='sudo du -ch | grep total'
 
 # Gives you what is using the most space. Both directories and files. Varies on current directory
-alias most='du -hsx * | sort -rh | head -10'
+alias most='sudo du -hsx * | sort -rh | head -10'
 
