@@ -17,6 +17,6 @@ alias mac=ifconfig en0 | awk '/ether / {print $2}'
 # public IP address
 alias ipPublic="curl http://ipecho.net/plain; echo"
 
-# SL for Visual Studo Code 
+# Visual Studo Code 
 alias vscode="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
 
