@@ -1,5 +1,5 @@
-# Show current airport status:
-alias airinfo='airport -I'
+# For diagnosing Wi-Fi related issues, use the Wireless Diagnostics app or wdutil command line tool.
+alias wdinfo='sudo wdutil info'
 
 # Copy the working dir to the clipboard
 alias cpwd='pwd|xargs echo -n|pbcopy'
@@ -11,17 +11,11 @@ alias wifi="networksetup -setairportpower $(networksetup -listallhardwareports |
 alias netlist="networksetup -listallhardwareports"
 
 # Print local IPs
-alias ip4="ifconfig | grep -w inet"
-alias ip6="ifconfig | grep -w inet6"
+alias ip4=ipconfig getifaddr en0
+alias mac=ifconfig en0 | awk '/ether / {print $2}'
 
-# get your IP address
-alias myip="curl http://ipecho.net/plain; echo"
-
-# quick conversion to pdf
-# alias pdf='libreoffice --headless --invisible --convert-to pdf'
-
-# Disk usage
-alias da='du -sch'
+# public IP address
+alias ipPublic="curl http://ipecho.net/plain; echo"
 
 # SL for Visual Studo Code 
 alias vscode="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"

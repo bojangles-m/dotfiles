@@ -31,7 +31,3 @@ alias dps='docker ps -a'
 alias dimg="docker image list"
 
 alias dcrenew= 'docker compose up --build --pull=always --remove-orphans --renew-anon-volumes'
-
-function test() {
-  echo $(basename $PWD)
-}
