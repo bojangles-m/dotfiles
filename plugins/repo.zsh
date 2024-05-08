@@ -1,11 +1,1 @@
-# alias to Repository dirs
-alias repo="cd ~/Repositories"
-alias repo.dcm="cd ~/repositories/dcm"
-alias repo.mernwd="cd ~/repositories/mernwd"
-alias repo.timeway="cd ~/repositories/timeway"
-alias repo.npm="cd ~/repositories/npm"
-alias repo.chatter="cd ~/repositories/chatter"
-alias repo.lyla="cd ~/ipresence/frontend"
-alias ctst="cd ~/Desktop/cheatsheet"
-alias mystt="cd ~/mystt"
 alias dotf="cd ~/MEGA/MEGA-Stuff/dotfiles"
