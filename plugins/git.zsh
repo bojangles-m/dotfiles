@@ -1,4 +1,3 @@
-# git aliases
 alias gch='git checkout'
 alias gc='git clone'
 alias gd='git diff | mate'

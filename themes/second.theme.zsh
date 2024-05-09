@@ -1,4 +1,4 @@
-source $THEMES/prompt.zsh
+source $THEMES_ROOT/prompt.zsh
 
 NL=$'\n'
 firstLine="[ ${MAGENTA}%~${GREEN}"

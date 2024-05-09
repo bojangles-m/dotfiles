@@ -1,4 +1,4 @@
-source $THEMES/prompt.zsh
+source $THEMES_ROOT/prompt.zsh
 
 # coloring the Prompt in zsh
 NL=$'\n'
