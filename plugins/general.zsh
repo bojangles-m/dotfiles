@@ -4,7 +4,7 @@ alias la='ls -a'
 alias l='ls -l'
 alias ll='ls -la'
 
-# Other
+# misc
 alias c="clear"
 alias e="exit"
 alias h="history"

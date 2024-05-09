@@ -18,7 +18,6 @@ SHELL_ROOT=($HOME/Mega/MEGA-Stuff/dotfiles)
 # Load settings
 # ------------------------------------------
 SETTINGS=($SHELL_ROOT/settings)
-
 source $SETTINGS/run/run.zsh
 source $SETTINGS/terminal.colors.zsh
 source $SETTINGS/paths.zsh
@@ -28,9 +27,8 @@ source $SETTINGS/keybindings.zsh
 # ------------------------------------------
 # Load prompt theme
 # ------------------------------------------
-THEMES=($SHELL_ROOT/themes)
-load_theme=third.theme.zsh
-source $THEMES/$load_theme
+THEMES_ROOT=($SHELL_ROOT/themes)
+source $THEMES_ROOT/theme.zsh
 
 # ------------------------------------------
 # Load all of plugin files

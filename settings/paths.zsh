@@ -25,11 +25,7 @@ export PATH
 # set mysql@5.7 in your PATH
 export PATH="/usr/local/opt/mysql@5.7/bin:$PATH"
 
-# set php@7.4 in your PATH
 export PATH="/usr/local/opt/php@7.4/bin:$PATH"
 export PATH="/usr/local/opt/php@7.4/sbin:$PATH"
-
-# set symfony in your PATH
-export PATH="$HOME/.symfony/bin:$PATH"
 
 export PATH="$PATH:$HOME/Frontify/docker/bin"
