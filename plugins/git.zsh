@@ -1,6 +1,5 @@
 alias gch='git checkout'
 alias gc='git clone'
-alias gd='git diff | mate'
 alias gs='git status'
 alias gss='git status -s'
 alias gadd='git add .'
@@ -8,6 +7,17 @@ alias gcm='git commit -m'
 alias gcam='git commit -am'
 alias grs='git reset'
 alias gl='git log'
+
+# git worktree
+alias gwa='git worktree add'
+alias gwl='git worktree list'
+alias gwr='git worktree remove'
+alias gwp='git worktree prune'
+
+# git diff
+alias gd='git diff | mate'
+# perform eslint only on changed files
+alias gdfix='git diff --name-only | xargs pnpm exec eslint --fix --quiet'
 
 # git push
 alias gpu='git push'
