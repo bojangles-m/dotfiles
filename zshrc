@@ -18,9 +18,9 @@ SHELL_ROOT=($HOME/Mega/MEGA-Stuff/dotfiles)
 # Load settings
 # ------------------------------------------
 SETTINGS=($SHELL_ROOT/settings)
-source $SETTINGS/run/run.zsh
 source $SETTINGS/terminal.colors.zsh
 source $SETTINGS/paths.zsh
+source $SETTINGS/run/run.zsh
 source $SETTINGS/options.zsh
 source $SETTINGS/keybindings.zsh
 
