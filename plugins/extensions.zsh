@@ -10,4 +10,4 @@ bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
 
 # you-should-use
-source /opt/homebrew/share/zsh-you-should-use/you-should-use.plugin.zsh
+source $(brew --prefix)/share/zsh-you-should-use/you-should-use.plugin.zsh

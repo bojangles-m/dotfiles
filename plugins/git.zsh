@@ -5,7 +5,6 @@ alias gss='git status -s'
 alias gadd='git add .'
 alias gcm='git commit -m'
 alias gcam='git commit -am'
-alias grs='git reset'
 alias gl='git log'
 
 # git worktree
@@ -54,8 +53,15 @@ alias grp='git remote prune origin'
 # git rebase and squash helpers
 alias grb='git rebase'
 
-re='^[0-9]+$'
+# git reset
+function grs() {
+    [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]] && git reset || git reset -i HEAD~$1
+}
+
+# git squash
 function gsq() {
+    re='^[0-9]+$'
+
     if [[ $1 =~ $re ]] ; then
         echo "Is number: $1"
         git rebase -i HEAD~$1
@@ -64,25 +70,30 @@ function gsq() {
 
 # git stash helper function
 function gst() {
-    if [ -z "$1" ]; then        
-        git stash
-    elif [ "$1" = "a" ]; then
-        git stash apply stash@{"$2"}
-    elif [ "$1" = "l"  ]; then
-        git stash list
-    elif [ "$1" = "d" ]; then
-        if [ -z "$2" ]; then        
-            git stash drop
-        else 
-            git stash drop stash@{"$2"}
-        fi
-    elif [ "$1" = "p" ]; then
-        if [ -z "$2" ]; then        
-            git stash pop
-        else 
-            git stash pop stash@{"$2"}
-        fi
-    elif [ "$1" = "msg" ]; then
-        git stash push -m $2
-    fi
+    case "$1" in
+        a)
+            git stash apply stash@{"$2"}
+            # echo 'apply'
+            ;;
+        l)
+            git stash list
+            # echo 'list'
+            ;;
+        d)
+            [[ -z "$2" ]] && git stash drop || git stash drop stash@{"$2"}
+            # [[ -z "$2" ]] && echo 'drop' || echo "drop stash@$2"
+            ;;
+        p)
+            [[ -z "$2" ]] && git stash pop || git stash pop stash@{"$2"}
+            # [[ -z "$2" ]] && echo 'pop' || echo "pop stash@$2"
+            ;;
+        msg)
+            git stash push -m $2
+            # echo $2
+            ;;
+        *) 
+            git stash
+            # echo 'statsh: is empty'
+            ;;
+    esac
 }

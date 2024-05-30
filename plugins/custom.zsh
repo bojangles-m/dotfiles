@@ -20,3 +20,5 @@ alias ipPublic="curl http://ipecho.net/plain; echo"
 # Visual Studo Code 
 alias vscode="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
 
+# NPM
+alias nls="npm ls -g --depth=0 --link=true"
