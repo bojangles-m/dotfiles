@@ -55,12 +55,14 @@ alias grb='git rebase'
 
 # git reset
 function grs() {
-    [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]] && git reset || git reset -i HEAD~$1
+    local re='^[0-9]+(\.[0-9]+)?$'
+
+    [[ $1 =~ $re ]] && git reset || git reset -i HEAD~$1
 }
 
 # git squash
 function gsq() {
-    re='^[0-9]+$'
+    local re='^[0-9]+$'
 
     if [[ $1 =~ $re ]] ; then
         echo "Is number: $1"
