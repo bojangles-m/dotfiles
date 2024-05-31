@@ -55,7 +55,7 @@ alias grb='git rebase'
 
 # git reset
 function grs() {
-    local re='^[0-9]+(\.[0-9]+)?$'
+    local re='^[0-9]$'
 
     [[ $1 =~ $re ]] && git reset || git reset -i HEAD~$1
 }
@@ -64,8 +64,7 @@ function grs() {
 function gsq() {
     local re='^[0-9]+$'
 
-    if [[ $1 =~ $re ]] ; then
-        echo "Is number: $1"
+    if [[ $1 =~ $re ]]; then
         git rebase -i HEAD~$1
     fi
 }
@@ -75,27 +74,21 @@ function gst() {
     case "$1" in
         a)
             git stash apply stash@{"$2"}
-            # echo 'apply'
             ;;
         l)
             git stash list
-            # echo 'list'
             ;;
         d)
             [[ -z "$2" ]] && git stash drop || git stash drop stash@{"$2"}
-            # [[ -z "$2" ]] && echo 'drop' || echo "drop stash@$2"
             ;;
         p)
             [[ -z "$2" ]] && git stash pop || git stash pop stash@{"$2"}
-            # [[ -z "$2" ]] && echo 'pop' || echo "pop stash@$2"
             ;;
         msg)
             git stash push -m $2
-            # echo $2
             ;;
         *) 
             git stash
-            # echo 'statsh: is empty'
             ;;
     esac
 }
