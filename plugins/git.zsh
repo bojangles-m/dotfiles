@@ -55,7 +55,7 @@ alias grb='git rebase'
 
 # git reset
 function grs() {
-    local re='^[0-9]$'
+    local re='^[0-9]+$'
 
     [[ $1 =~ $re ]] && git reset || git reset -i HEAD~$1
 }
