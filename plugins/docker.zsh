@@ -4,10 +4,10 @@
 alias dco='docker compose'
 alias dcb='docker compose build'
 alias dcup='docker compose up'
+alias dcdown='docker compose down'
 alias dcbup='docker compose up --build'
 alias dcr='docker compose run'
 alias dcstop='docker compose stop'
-alias ddown='docker compose down'
 alias dce='docker compose exec'
 alias dcrestart='docker compose restart'
 alias dcrm='docker compose rm'
@@ -16,9 +16,9 @@ alias dclf='docker compose logs -f'
 alias dcpull='docker compose pull'
 alias dcstart='docker compose start'
 alias dck='docker compose kill'
+alias dcrenew='docker compose up --build --pull=always --remove-orphans --renew-anon-volumes'
 
 alias dps='docker ps -a'
 alias dimg="docker image ls"
 alias dl='docker login --username'
 
-alias dcrenew='docker compose up --build --pull=always --remove-orphans --renew-anon-volumes'

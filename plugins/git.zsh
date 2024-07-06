@@ -32,6 +32,9 @@ alias gfd='git fetch origin develop:develop'
 alias gb='git branch'
 alias gbdchk="git branch -vv | awk '/: gone]/ {print \$1}'"
 alias gbdall="git branch -vv | awk '/: gone]/ {print \$1}' | xargs git branch -D"
+# If you have the hash of the stash commit you can create a separate branch for it with:
+# git branch recovered $stash_hash
+alias gbr="git branch recovered"
 
 # git merge
 alias gm='git merge'
@@ -48,7 +51,7 @@ alias gr='git remote'
 alias gru='git remote update'
 alias grp='git remote prune origin'
 
-# To rebase master into gfeature branch
+# To rebase master into feature branch
 # git rebase master
 # git rebase and squash helpers
 alias grb='git rebase'
@@ -73,7 +76,9 @@ function gsq() {
 function gst() {
     case "$1" in
         a)
-            git stash apply stash@{"$2"}
+            # Once you know the hash of the stash commit you dropped, you can apply it as a stash
+            # $2 is a stash hash
+            git stash apply $2
             ;;
         l)
             git stash list
