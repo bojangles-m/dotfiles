@@ -57,7 +57,6 @@ alias grp='git remote prune origin'
 function gcb {
     echo "Prune deleted merged branches in Git..."
     grp
-    gbdchk
     gbdall
     echo "Git branch cleanup completed."
 }
