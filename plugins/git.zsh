@@ -30,8 +30,10 @@ alias gfd='git fetch origin develop:develop'
 
 # git branch
 alias gb='git branch'
-alias gbdchk="git branch -vv | awk '/: gone]/ {print \$1}'"
-alias gbdall="git branch -vv | awk '/: gone]/ {print \$1}' | xargs git branch -D"
+# Exclude the main branches (e.g., main, master)
+alias gbdchk="git branch -vv | grep -vE '^\*|main|master' | awk '/: gone]/ {print \$1}'"
+alias gbdall="git branch -vv | grep -vE '^\*|main|master' | awk '/: gone]/ {print \$1}' | xargs git branch -D"
+
 # If you have the hash of the stash commit you can create a separate branch for it with:
 # git branch recovered $stash_hash
 alias gbr="git branch recovered"
@@ -50,6 +52,15 @@ alias gpd='git pull origin develop'
 alias gr='git remote'
 alias gru='git remote update'
 alias grp='git remote prune origin'
+
+# clean all deleted merged branches in Git
+function gcb {
+    echo "Prune deleted merged branches in Git..."
+    grp
+    gbdchk
+    gbdall
+    echo "Git branch cleanup completed."
+}
 
 # To rebase master into feature branch
 # git rebase master
