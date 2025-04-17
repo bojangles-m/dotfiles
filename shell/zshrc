@@ -14,7 +14,7 @@ export LANG=en_US.UTF-8
 # ------------------------------------------
 
 # Main folder of ZSH configuration
-SHELL_ROOT=($HOME/Mega/MEGA-Stuff/dotfiles)
+SHELL_ROOT=($HOME/dotfiles/shell)
 
 # ------------------------------------------
 # Load settings
