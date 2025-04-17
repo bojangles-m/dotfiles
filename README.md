@@ -1,1 +1,5 @@
-# Z SHELL
+# Dotfiles
+
+## Z SHELL
+
+## iTerm settings
