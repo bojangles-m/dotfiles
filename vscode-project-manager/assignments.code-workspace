@@ -1,31 +1,31 @@
 {
   "folders": [
-	{
-		"path": "../../Projects/Assignments/Coding Chalanges"
-	},
-	{
-		"path": "../../Projects/Assignments/ef-design"
-	},
-	{
-		"path": "../../Projects/Assignments/fe-assignment-vue"
-	},
-	{
-		"path": "../../Projects/Assignments/frontify-colors"
-	},
-	{
-		"path": "../../Projects/Assignments/profidata"
-	},
-	{
-		"path": "../../Projects/Assignments/proton-test"
-	},
-	{
-		"path": "../../Projects/Assignments/reprisk-devtest"
-	},
-	{
-		"path": "../../Projects/Assignments/rivero"
-	},
-	{
-		"path": "../../Projects/Assignments/transactions-server"
-	}
-]
+    {
+      "path": "../../Stuff/Projects/Assignments/Coding Chalanges"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/ef-design"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/fe-assignment-vue"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/frontify-colors"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/profidata"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/proton-test"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/reprisk-devtest"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/rivero"
+    },
+    {
+      "path": "../../Stuff/Projects/Assignments/transactions-server"
+    }
+  ]
 }

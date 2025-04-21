@@ -1,21 +1,21 @@
 {
-	"folders": [
-		{
-			"path": "../../Projects/team-bitflip/newsletter-system"
-		}
-	],
-	"settings": {
-		"i18n-ally.localesPaths": [
-			"assets/vue/localization/locales",
-			"assets/vue/utils/i18n",
-			"assets/js/tinymce/plugins/ContentAnchor/lang",
-			"assets/js/tinymce/plugins/Footnotes/lang",
-			"assets/js/tinymce/plugins/HtmlEntities/lang",
-			"assets/js/tinymce/plugins/LineHeight/lang",
-			"assets/js/tinymce/plugins/Link/lang",
-			"assets/js/tinymce/plugins/Image/lang",
-			"assets/js/tinymce/plugins/ListStyle/lang",
-			"assets/js/tinymce/plugins/Placeholders/lang"
-		]
-	}
+  "folders": [
+    {
+      "path": "../../Stuff/Projects/team-bitflip/newsletter-system"
+    }
+  ],
+  "settings": {
+    "i18n-ally.localesPaths": [
+      "assets/vue/localization/locales",
+      "assets/vue/utils/i18n",
+      "assets/js/tinymce/plugins/ContentAnchor/lang",
+      "assets/js/tinymce/plugins/Footnotes/lang",
+      "assets/js/tinymce/plugins/HtmlEntities/lang",
+      "assets/js/tinymce/plugins/LineHeight/lang",
+      "assets/js/tinymce/plugins/Link/lang",
+      "assets/js/tinymce/plugins/Image/lang",
+      "assets/js/tinymce/plugins/ListStyle/lang",
+      "assets/js/tinymce/plugins/Placeholders/lang"
+    ]
+  }
 }

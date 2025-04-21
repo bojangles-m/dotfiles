@@ -1,79 +1,79 @@
 {
   "folders": [
-	{
-		"path": "../../Projects/Learning/components"
-	},
-	{
-		"path": "../../Projects/Learning/css-tricks"
-	},
-	{
-		"path": "../../Projects/Learning/design-patterns"
-	},
-	{
-		"path": "../../Projects/Learning/epic-react"
-	},
-	{
-		"path": "../../Projects/Learning/fizzbuzz"
-	},
-	{
-		"path": "../../Projects/Learning/forms"
-	},
-	{
-		"path": "../../Projects/Learning/graphql-example"
-	},
-	{
-		"path": "../../Projects/Learning/jwt-authentication"
-	},
-	{
-		"path": "../../Projects/Learning/light-switch"
-	},
-	{
-		"path": "../../Projects/Learning/Microservices"
-	},
-	{
-		"path": "../../Projects/Learning/packit"
-	},
-	{
-		"path": "../../Projects/Learning/product-list-gql"
-	},
-	{
-		"path": "../../Projects/Learning/product-list-rest"
-	},
-	{
-		"path": "../../Projects/Learning/RomanToDecimal"
-	},
-	{
-		"path": "../../Projects/Learning/svelte"
-	},
-	{
-		"path": "../../Projects/Learning/svelte-webpack"
-	},
-	{
-		"path": "../../Projects/Learning/xss-atack"
-	},
-	{
-		"path": "../../Projects/Learning/xwatch"
-	},
-	{
-		"path": "../../Projects/Learning/react-patterns-workshop"
-	},
-	{
-		"path": "../../Projects/Learning/tree"
-	},
-	{
-		"path": "../../Projects/Learning/TypeScript-4-Design-Patterns-and-Best-Practices"
-	},
-	{
-		"path": "../../Projects/Learning/memo-hook-example"
-	},
-	{
-		"path": "../../Projects/Learning/uploader"
-	},
-	{
-		"path": "../../Projects/Learning/typescript-examples"
-	},
-	{
-		"path": "../../Projects/Learning/sorting-simulator"
-	}
-]
+    {
+      "path": "../../Stuff/Projects/Learning/components"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/css-tricks"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/design-patterns"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/epic-react"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/fizzbuzz"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/forms"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/graphql-example"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/jwt-authentication"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/light-switch"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/Microservices"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/packit"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/product-list-gql"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/product-list-rest"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/RomanToDecimal"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/svelte"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/svelte-webpack"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/xss-atack"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/xwatch"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/react-patterns-workshop"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/tree"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/TypeScript-4-Design-Patterns-and-Best-Practices"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/memo-hook-example"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/uploader"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/typescript-examples"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/sorting-simulator"
+    }
+  ]
 }

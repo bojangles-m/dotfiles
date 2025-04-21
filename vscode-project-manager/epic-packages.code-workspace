@@ -1,13 +1,13 @@
 {
   "folders": [
-	{
-		"path": "../../Projects/team-X/epic-admin-ui"
-	},
-	{
-		"path": "../../Projects/team-X/epic-bundler"
-	},
-	{
-		"path": "../../Projects/team-X/tsg-shop-staff-admin"
-	}
-]
+    {
+      "path": "../../Stuff/Projects/team-X/epic-admin-ui"
+    },
+    {
+      "path": "../../Stuff/Projects/team-X/epic-bundler"
+    },
+    {
+      "path": "../../Stuff/Projects/team-X/tsg-shop-staff-admin"
+    }
+  ]
 }
