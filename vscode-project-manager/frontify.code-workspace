@@ -1,0 +1,32 @@
+{
+  "folders": [
+	{
+		"path": "../../dev/web-app"
+	},
+	{
+		"path": "../../dev/app-server"
+	},
+	{
+		"path": "../../dev/marketplace-service"
+	},
+	{
+		"path": "../../dev/frontify-worker"
+	},
+	{
+		"path": "../../dev/frontify-indexer"
+	},
+	{
+		"path": "../../dev/analytics-record-enricher"
+	}
+],
+  "settings": {
+    "exportall.config.relExclusion": [
+      "/application/client/Page/Dashboard/Component/Widget/Helper/getIconName.ts",
+      "/application/client/Page/Dashboard/Component/Widget/Helper/index.ts"
+    ],
+    "liveServer.settings.multiRootWorkspaceName": "web-app",
+    "git.ignoreLimitWarning": true,
+    "i18n-ally.localesPaths": ["public/locales"],
+    "i18n-ally.keystyle": "nested"
+  }
+}
