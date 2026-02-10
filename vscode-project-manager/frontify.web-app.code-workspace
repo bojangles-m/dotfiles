@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "path": "../../dev/web-app",
+    },
+  ],
+  "settings": {
+    "i18n-ally.keystyle": "flat",
+    "tailwindCSS.experimental.configFile": "tailwind.config.ts",
+    "i18n-ally.localesPaths": ["public/locales"],
+  },
+}

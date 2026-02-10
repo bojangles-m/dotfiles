@@ -1,114 +1,154 @@
 [
-  {
-    "name": "Assignments",
-    "rootPath": "~/dotfiles/vscode-project-manager/assignments.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Learning",
-    "rootPath": "~/dotfiles/vscode-project-manager/learning.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Team Bitflip - Newsletter System",
-    "rootPath": "~/dotfiles/vscode-project-manager/newsletter-system.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Team X - Epic Packages",
-    "rootPath": "~/dotfiles/vscode-project-manager/epic-packages.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Team digital wizards - Asus-lp-q4",
-    "rootPath": "~/dotfiles/vscode-project-manager/workspace.asus-lp-q4.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Team digital wizards - Equal gaming",
-    "rootPath": "~/dotfiles/vscode-project-manager/workspace.equal-gaming.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Docker",
-    "rootPath": "~/dotfiles/vscode-project-manager/workspace.docker.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Dot Files / Cheat Sheet",
-    "rootPath": "~/dotfiles/vscode-project-manager/cheatsheet.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Frontify - Fondue",
-    "rootPath": "~/dotfiles/vscode-project-manager/fondue.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "SecondsFormatter",
-    "rootPath": "~/dotfiles/vscode-project-manager/seconds-formater.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Presentation -> DIP",
-    "rootPath": "~/dotfiles/vscode-project-manager/DIP.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Presentation -> React Clean Architecture",
-    "rootPath": "~/dotfiles/vscode-project-manager/react-clean-architecture.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Presentation -> Replace Conditional with Polymorphism",
-    "rootPath": "~/dotfiles/vscode-project-manager/replace-conditional-with-polymorphism.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Frontify - Frontify",
-    "rootPath": "~/dotfiles/vscode-project-manager/frontify.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "gwt",
-    "rootPath": "~/dotfiles/vscode-project-manager/gwt.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  },
-  {
-    "name": "Frontify - Testing suite",
-    "rootPath": "~/dotfiles/vscode-project-manager/testing-suite.code-workspace",
-    "paths": [],
-    "tags": [],
-    "enabled": true
-  }
+	{
+		"name": "Assignments",
+		"rootPath": "~/dotfiles/vscode-project-manager/assignments.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Learning",
+		"rootPath": "~/dotfiles/vscode-project-manager/learning.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Team Bitflip - Newsletter System",
+		"rootPath": "~/dotfiles/vscode-project-manager/newsletter-system.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Team X - Epic Packages",
+		"rootPath": "~/dotfiles/vscode-project-manager/epic-packages.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Team digital wizards - Asus-lp-q4",
+		"rootPath": "~/dotfiles/vscode-project-manager/workspace.asus-lp-q4.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Team digital wizards - Equal gaming",
+		"rootPath": "~/dotfiles/vscode-project-manager/workspace.equal-gaming.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Docker",
+		"rootPath": "~/dotfiles/vscode-project-manager/workspace.docker.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Dot Files / Cheat Sheet",
+		"rootPath": "~/dotfiles/vscode-project-manager/cheatsheet.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - Fondue",
+		"rootPath": "~/dotfiles/vscode-project-manager/fondue.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "SecondsFormatter",
+		"rootPath": "~/dotfiles/vscode-project-manager/seconds-formater.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Presentation -> DIP",
+		"rootPath": "~/dotfiles/vscode-project-manager/DIP.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Presentation -> React Clean Architecture",
+		"rootPath": "~/dotfiles/vscode-project-manager/react-clean-architecture.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Presentation -> Replace Conditional with Polymorphism",
+		"rootPath": "~/dotfiles/vscode-project-manager/replace-conditional-with-polymorphism.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - Frontify",
+		"rootPath": "~/dotfiles/vscode-project-manager/frontify.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "gwt",
+		"rootPath": "~/dotfiles/vscode-project-manager/gwt.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - Testing suite",
+		"rootPath": "~/dotfiles/vscode-project-manager/testing-suite.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - Testing suite Palywright",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/testing-suite-playwright.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - web-app",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/frontify.web-app.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Frontify - app-server",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/frontify.app-server.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	}
 ]

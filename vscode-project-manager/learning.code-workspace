@@ -55,9 +55,6 @@
       "path": "../../Stuff/Projects/Learning/xwatch"
     },
     {
-      "path": "../../Stuff/Projects/Learning/react-patterns-workshop"
-    },
-    {
       "path": "../../Stuff/Projects/Learning/tree"
     },
     {
@@ -74,6 +71,9 @@
     },
     {
       "path": "../../Stuff/Projects/Learning/sorting-simulator"
+    },
+    {
+      "path": "../../Stuff/Projects/Learning/toggle-content-visibility-on-scroll"
     }
   ]
 }
