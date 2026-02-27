@@ -150,5 +150,29 @@
 		"tags": [],
 		"enabled": true,
 		"profile": ""
+	},
+	{
+		"name": "Learning - pizza - MCP",
+		"rootPath": "/Users/bojan.mazej/Stuff/Projects/pizza-mcp",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Tarok",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/tarok.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
+	},
+	{
+		"name": "Claude",
+		"rootPath": "/Users/bojan.mazej/Stuff/Claude",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
 	}
 ]

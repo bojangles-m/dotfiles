@@ -13,6 +13,7 @@ alias idx-setup='app-server php application/cli/search/setup_index.php'
 alias dpt=app-server php composer.phar run deptrac
 alias dptl=app-server php composer.phar run deptrac:legacy
 
+alias test="pnpm test"
 alias test:w="pnpm test:unit:watch"
 alias test:c:w="pnpm test:coverage:watch"
 
