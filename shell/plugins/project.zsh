@@ -35,16 +35,17 @@ ffdev() {
         select-pane -t ffdev:0.0 \; \
         send-keys -t ffdev:0.0 C-m
       return
-    elif [[ "$1" == "k" ]]; then
+    elif [[ "$1" == "kill" ]]; then
       echo "Killing entire session..."
       tmux kill-session -t ffdev 2>/dev/null
       return
     fi
 
-    # Attach to existing session and cd into web-app dir
+    # Attach/switch to existing session and cd into web-app dir
     tmux select-pane -t ffdev:0.0 \; \
-      send-keys -t ffdev:0.0 "cd ~/dev/web-app" C-m \; \
-      attach -t ffdev
+      send-keys -t ffdev:0.0 "cd ~/dev/web-app" C-m
+
+    tmux_attach_or_switch ffdev
     return
   fi
 
@@ -73,17 +74,20 @@ ffdev() {
   # Make left pane active
   tmux select-pane -t ffdev:0.0
 
-  # Attach to session
-  tmux attach -t ffdev
+  # Attach or switch
+  tmux_attach_or_switch ffdev
 }
 
 ffdevba() {
   if tmux has-session -t ffdev-ba 2>/dev/null; then
-    if [[ "$1" == "k" ]]; then
+    if [[ "$1" == "kill" ]]; then
       echo "Killing entire session..."
       tmux kill-session -t ffdev-ba
       return
     fi
+
+    tmux_attach_or_switch ffdev-ba
+    return
   fi
 
   # kill session if exists to start fresh one
@@ -96,7 +100,6 @@ ffdevba() {
   tmux new-session -d -s ffdev-ba
 
   # Left pane: Brand assistant
-  # tmux select-pane -t ffdev-ba:0.0
   tmux send-keys -t ffdev-ba:0.0 "clear" C-m
   tmux send-keys -t ffdev-ba:0.0 "cd ~/dev/brand_assistant && gpl origin main && pnpm dev" C-m
 
@@ -104,7 +107,9 @@ ffdevba() {
   tmux split-window -h -t ffdev-ba:0.0
   tmux send-keys -t ffdev-ba:0.1 "cd ~/dev/frontify-mcp-server && export NODE_EXTRA_CA_CERTS=$HOME/.ffy-cli/tls/ca.crt && pnpm install && pnpm dev" C-m
 
-  # Make left pane active and Attach to session
+  # Make left pane active
   tmux select-pane -t ffdev-ba:0.0
-  tmux attach -t ffdev-ba
+
+  # Attach or switch
+  tmux_attach_or_switch ffdev-ba
 }
