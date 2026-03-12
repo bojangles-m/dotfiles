@@ -31,7 +31,8 @@ alias gfd='git fetch origin develop:develop'
 # git branch
 alias gb='git branch'
 # Exclude the main branches (e.g., main, master)
-alias gbdchk="git branch -vv | grep -vE '^\[.+\/(main|master)' | awk '/: gone]/ {print \$1}'"
+alias gbcheck="git fetch --prune && git branch --merged origin/main | grep -v 'main'"
+alias gbclean='git fetch --prune && git branch --merged origin/main | grep -v "main" | xargs -r git branch -d'
 alias gbdall="git branch -vv | grep -vE '^\[.+\/(main|master)' | awk '/: gone]/ {print \$1}' | xargs git branch -D"
 
 # If you have the hash of the stash commit you can create a separate branch for it with:
@@ -56,8 +57,10 @@ alias grp='git remote prune origin'
 # clean all deleted merged branches in Git
 function gbc {
     echo "Prune deleted merged branches in Git..."
-    grp
+
+    gbclean
     gbdall
+
     echo "Git branch cleanup completed."
 }
 
