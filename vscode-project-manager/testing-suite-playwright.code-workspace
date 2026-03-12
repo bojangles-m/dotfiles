@@ -1,7 +1,12 @@
 {
-	"folders": [
-		{
-			"path": "../../dev/testing-suite-playwright"
-		}
-	]
+  "folders": [
+    {
+      "path": "../../dev/testing-suite-playwright",
+    },
+  ],
+  "settings": {
+    "playwrightBdd.configPath": "playwright.config.ts",
+    "playwrightBdd.featureFolder": "src/tests/webApp/CookieConsent/features",
+    "playwrightBdd.stepsFolder": "src/pages/webApp/Platform",
+  },
 }

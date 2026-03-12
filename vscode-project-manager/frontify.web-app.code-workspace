@@ -3,10 +3,14 @@
     {
       "path": "../../dev/web-app",
     },
+    {
+      "path": "../../dev/brand_assistant",
+    },
   ],
   "settings": {
     "i18n-ally.keystyle": "flat",
     "tailwindCSS.experimental.configFile": "tailwind.config.ts",
     "i18n-ally.localesPaths": ["public/locales"],
+    "git.ignoreLimitWarning": true,
   },
 }

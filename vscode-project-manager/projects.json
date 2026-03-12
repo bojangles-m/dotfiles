@@ -174,5 +174,13 @@
 		"tags": [],
 		"enabled": true,
 		"profile": ""
+	},
+	{
+		"name": "Frontify - MCP server",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/frontify-mcp-server.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
 	}
 ]
