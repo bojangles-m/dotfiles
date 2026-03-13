@@ -1,3 +1,21 @@
+tmux_attach_grouped() {
+  local session="$1"
+  local target_window="$2"
+  local group_session="${session}-$$"
+
+  tmux new-session -d -t $session -s "$group_session"
+  if [ -n "$target_window" ]; then
+    tmux select-window -t "$group_session:$target_window"
+  fi
+  tmux set-option -t "$group_session" destroy-unlinked on 2>/dev/null
+
+  if [ -n "$TMUX" ]; then
+    tmux switch-client -t "$group_session"
+  else
+    tmux attach -t "$group_session"
+  fi
+}
+
 ffdev() {
   local session="ffdev"
   local target_window=""
@@ -64,18 +82,5 @@ ffdev() {
       ;;
   esac
 
-  # Create a grouped session for independent window viewing
-  local group_session="${session}-$$"
-  tmux new-session -d -t $session -s "$group_session"
-  if [ -n "$target_window" ]; then
-    tmux select-window -t "$group_session:$target_window"
-  fi
-  tmux set-option -t "$group_session" destroy-unlinked on 2>/dev/null
-
-  # Attach to the grouped session
-  if [ -n "$TMUX" ]; then
-    tmux switch-client -t "$group_session"
-  else
-    tmux attach -t "$group_session"
-  fi
+  tmux_attach_grouped "$session" "$target_window"
 }
