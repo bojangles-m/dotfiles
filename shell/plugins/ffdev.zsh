@@ -99,6 +99,9 @@ ffdev2() {
   local session="ffdev"
 
   if [[ "$1" == "kill" ]]; then
+    if [ -n "$TMUX" ]; then
+      tmux detach-client 2>/dev/null
+    fi
     tmux kill-session -t $session 2>/dev/null
     return
   fi
@@ -114,17 +117,20 @@ ffdev2() {
 
     web)
       if ! tmux list-windows -t $session | grep -q web; then
-        tmux new-window -t $session -n web
+        # left pane
+        local left_pane=$(tmux new-window -t $session -n web -P -F '#{pane_id}')
+        tmux send-keys -t "$left_pane" "cd ~/dev/web-app" C-m
 
-        tmux send-keys -t $session:web "cd ~/dev/web-app" C-m
+        # right top pane
+        local right_top=$(tmux split-window -h -t "$left_pane" -P -F '#{pane_id}')
+        tmux send-keys -t "$right_top" "cd ~/.claude" C-m
 
-        tmux split-window -h -t $session:web
-        tmux send-keys -t $session:web.1 "ffy serve" C-m
+        # right bottom pane
+        local right_bottom=$(tmux split-window -v -t "$right_top" -P -F '#{pane_id}')
+        tmux send-keys -t "$right_bottom" "cd ~/dev/worktrees" C-m
 
-        tmux split-window -v -t $session:web.1
-        tmux send-keys -t $session:web.2 "cd ~/dev/web-app && pnpm dev" C-m
-
-        tmux select-pane -t $session:web.0
+        # switch back to left pane
+        tmux select-pane -t "$left_pane"
       fi
 
       tmux select-window -t $session:web
@@ -132,24 +138,17 @@ ffdev2() {
 
     ba)
       if ! tmux list-windows -t $session | grep -q brand; then
-        tmux new-window -t $session -n brand
-
         # left pane
-        tmux send-keys -t $session:brand.0 \
-          "cd ~/dev/brand_assistant && gpl origin main && pnpm dev" C-m
+        local left_pane=$(tmux new-window -t $session -n brand -P -F '#{pane_id}')
+        tmux send-keys -t "$left_pane" "cd ~/dev/brand_assistant && gpl origin main && pnpm dev" C-m
 
-        # # create right pane
-        # tmux split-window -h -t $session:brand.0
-          
-        # # right pane (MCP)
-        # tmux send-keys -t $session:brand.1 \
-        #   tmux send-keys -t ffdev-ba:0.1 "cd ~/dev/frontify-mcp-server && export NODE_EXTRA_CA_CERTS=$HOME/.ffy-cli/tls/ca.crt && pnpm install && pnpm dev" C-m
+        # right pane
+        local right_pane=$(tmux split-window -h -t "$left_pane" -P -F '#{pane_id}')
+        tmux send-keys -t "$right_pane" "cd ~/dev/frontify-mcp-server && export NODE_EXTRA_CA_CERTS=$HOME/.ffy-cli/tls/ca.crt && pnpm install && pnpm dev" C-m
 
-        tmux select-pane -t $session:brand.0
+        # switch back to left pane
+        tmux select-pane -t "$left_pane"
       fi
-
-      tmux select-window -t $session:brand
-      ;;
   esac
 
   tmux_attach_or_switch $session
