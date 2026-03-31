@@ -70,11 +70,15 @@ ffdev() {
       if ! tmux list-windows -t "=$session" | grep -q brand; then
         # left pane
         local left_pane=$(tmux new-window -t "=$session" -n brand -P -F '#{pane_id}')
-        tmux send-keys -t "$left_pane" "cd ~/dev/brand_assistant && gpl origin main && pnpm dev" C-m
+        tmux send-keys -t "$left_pane" "cd ~/" C-m
 
-        # right pane
-        local right_pane=$(tmux split-window -h -t "$left_pane" -P -F '#{pane_id}')
-        tmux send-keys -t "$right_pane" "cd ~/dev/frontify-mcp-server && export NODE_EXTRA_CA_CERTS=$HOME/.ffy-cli/tls/ca.crt && pnpm install && pnpm dev" C-m
+        # Top-Right pane: brand assistant
+        local right_top=$(tmux split-window -h -t "$left_pane" -P -F '#{pane_id}')
+        tmux send-keys -t "$right_top" "cd ~/dev/brand_assistant && gpl origin main && pnpm dev" C-m
+
+        # Bottom-Right pane: MCP server
+        local right_bottom=$(tmux split-window -v -t "$right_top" -P -F '#{pane_id}')
+        tmux send-keys -t "$right_bottom" "cd ~/dev/frontify-mcp-server && export NODE_EXTRA_CA_CERTS=$HOME/.ffy-cli/tls/ca.crt && pnpm install && pnpm dev" C-m
 
         # switch back to left pane
         tmux select-pane -t "$left_pane"
