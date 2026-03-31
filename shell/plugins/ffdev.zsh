@@ -39,8 +39,10 @@ ffdev() {
     tmux send-keys -t $session:0 "cd ~/dev" C-m
   fi
 
-  case "$1" in
+  # Run SSO login first (interactive, before tmux)
+  aws sts get-caller-identity &>/dev/null || aws sso login
 
+  case "$1" in
     web)
       if ! tmux list-windows -t "=$session" | grep -q web; then
         # left pane

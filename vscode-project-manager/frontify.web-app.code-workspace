@@ -6,6 +6,9 @@
     {
       "path": "../../dev/brand_assistant",
     },
+    {
+      "path": "../../dev/frontify-mcp-server",
+    },
   ],
   "settings": {
     "i18n-ally.keystyle": "flat",
