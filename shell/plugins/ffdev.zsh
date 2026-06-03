@@ -21,14 +21,31 @@ ffdev() {
   local target_window=""
 
   if [[ "$1" == "kill" ]]; then
-    if [ -n "$TMUX" ]; then
-      tmux detach-client 2>/dev/null
+    local kill_target="$2"
+    if [ -n "$kill_target" ]; then
+      # Map shorthand to window name
+      case "$kill_target" in
+        web) kill_target="web" ;;
+        ba)  kill_target="brand" ;;
+      esac
+      # Kill specific window
+      if tmux list-windows -t "=$session" -F '#{window_name}' 2>/dev/null | grep -q "^${kill_target}$"; then
+        tmux kill-window -t "=$session:$kill_target"
+        echo "Killed window: $kill_target"
+      else
+        echo "Window '$kill_target' not found in session '$session'"
+      fi
+    else
+      # Kill entire session and all grouped sessions
+      if [ -n "$TMUX" ]; then
+        tmux detach-client 2>/dev/null
+      fi
+      local sessions=($(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep "^${session}"))
+      for s in "${sessions[@]}"; do
+        tmux kill-session -t "$s" 2>/dev/null
+      done
+      echo "Killed all ffdev sessions"
     fi
-    # Kill all sessions in the group (main + grouped)
-    local sessions=($(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep "^${session}"))
-    for s in "${sessions[@]}"; do
-      tmux kill-session -t "$s" 2>/dev/null
-    done
     return
   fi
 

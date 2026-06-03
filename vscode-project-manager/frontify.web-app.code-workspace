@@ -9,6 +9,9 @@
     {
       "path": "../../dev/frontify-mcp-server",
     },
+    {
+      "path": "../../dev/app-server",
+    },
   ],
   "settings": {
     "i18n-ally.keystyle": "flat",

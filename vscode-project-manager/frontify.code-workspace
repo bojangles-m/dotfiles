@@ -9,6 +9,12 @@
     {
       "path": "../../dev/brand_assistant",
     },
+    {
+      "path": "../../dev/frontify-mcp-server",
+    },
+    {
+      "path": "../../dev/auto-ci",
+    },
   ],
   "settings": {
     "exportall.config.relExclusion": [

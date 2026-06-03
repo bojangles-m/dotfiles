@@ -1,0 +1,13 @@
+# ~/.zprofile  (symlinked from dotfiles/shell/zprofile)
+# Sourced by LOGIN shells — covers GUI-launched apps (VS Code extension host),
+# where the interactive .zshrc nvm setup (settings/run/nvm.zsh) does NOT run.
+
+# Added by OrbStack: command-line tools and integration
+# This won't be added again if you remove it.
+source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+
+# nvm for login shells. Interactive switching / .nvmrc auto-use lives in
+# dotfiles/shell/settings/run/nvm.zsh (sourced by .zshrc).
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh" --no-use
+nvm use default >/dev/null 2>&1
