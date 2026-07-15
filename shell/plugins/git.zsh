@@ -46,13 +46,23 @@ alias gmom='git merge origin main'
 
 # git pull
 alias gpl='git pull'
-alias gpm='git pull origin'
+alias gpo='git pull origin'
 alias gpd='git pull origin develop'
 
 # git remote
 alias gr='git remote'
 alias gru='git remote update'
 alias grp='git remote prune origin'
+
+# Task                  New command            Old command
+# --------------------  ---------------------  ----------------------
+# Switch branch         git switch B           git checkout B
+# Create + switch       git switch -c B main   git checkout -b B main
+# Restore a file        git restore file.txt   git checkout -- file.txt
+# Discard all changes   git restore .          git checkout -- .
+alias gsw='git switch'
+alias grst='git restore'
+
 
 # clean all deleted merged branches in Git
 function gbc {

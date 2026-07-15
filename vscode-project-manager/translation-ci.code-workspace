@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../dev/app-server"
+		},
+		{
+			"path": "../../dev/auto-ci"
+		},
+		{
+			"path": "../../dev/web-app"
+		}
+	]
+}

@@ -182,5 +182,13 @@
 		"tags": [],
 		"enabled": true,
 		"profile": ""
+	},
+	{
+		"name": "Frontify - Translation Auto CI",
+		"rootPath": "/Users/bojan.mazej/dotfiles/vscode-project-manager/translation-ci.code-workspace",
+		"paths": [],
+		"tags": [],
+		"enabled": true,
+		"profile": ""
 	}
 ]
