@@ -38,7 +38,7 @@ source $THEMES_ROOT/theme.zsh
 PLUGINS=($SHELL_ROOT/plugins)
 
 typeset -U plugins
-plugins=($PLUGINS/**/*)
+plugins=($PLUGINS/**/*.zsh)
 
 for file in ${plugins}
 do

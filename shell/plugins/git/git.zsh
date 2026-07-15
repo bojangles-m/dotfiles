@@ -7,12 +7,6 @@ alias gcm='git commit -m'
 alias gcam='git commit -am'
 alias gl='git log'
 
-# git worktree
-alias gwa='git worktree add'
-alias gwl='git worktree list'
-alias gwr='git worktree remove'
-alias gwp='git worktree prune'
-
 # git diff
 alias gd='git diff | mate'
 # perform eslint only on changed files
