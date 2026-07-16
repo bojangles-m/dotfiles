@@ -1,4 +1,4 @@
-GWT_VERSION="1.0.0"
+GWT_VERSION="1.0.2"
 
 # All worktrees live under $WORKTREE_DIR/<repo-name>/<branch>.
 # Override the base folder by exporting WORKTREE_DIR before the shell loads.
@@ -207,7 +207,14 @@ function gwr() {
     fi
 
     if [[ -n "$delete_flag" && -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
-        git branch "$delete_flag" "$wt_branch"
+        # Count commits unique to the branch before deleting (ref still exists).
+        local unique
+        unique="$(git rev-list --count "HEAD..$wt_branch" 2>/dev/null)"
+        if git branch "$delete_flag" "$wt_branch"; then
+            # Make the "why did it delete?" self-evident: an empty branch is safe.
+            [[ "$unique" == 0 ]] && \
+                echo "gwr: branch '$wt_branch' had no unique commits — nothing was lost"
+        fi
     fi
 }
 
