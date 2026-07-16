@@ -3,6 +3,14 @@
 : ${WORKTREE_DIR:="$HOME/dev/workspace"}
 GW_VERSION="1.0.0"
 
+# Copy ignored files only if it exists in the source checkout
+GW_COPY_FILES=(
+    .env                                    # FE
+    application/config/config-private.php   # BE
+    .vscode/launch.json                     # optional
+    .vscode/settings.json                   # optional
+)
+
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
@@ -65,10 +73,13 @@ function gwa() {
         git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" || return 1
     fi
 
-    # Worktrees omit gitignored files; copy the root .env into the new worktree.
-    if [[ -f "$src/.env" ]]; then
-        cp "$src/.env" "$wt/.env"
-    fi
+    # Worktrees omit gitignored files; seed the ones this repo needs
+    local f
+    for f in $GW_COPY_FILES; do
+        [[ -f "$src/$f" ]] || continue
+        mkdir -p "$wt/${f:h}"
+        cp "$src/$f" "$wt/$f"
+    done
 
     # Remember the most recent worktree so a bare `gwo` can reopen it.
     GW_LAST="$wt"
@@ -141,9 +152,17 @@ function gwr() {
         return
     fi
 
-    # If the only change is the .env gwa copied in, the worktree is effectively clean -> remove it silently.
-    # Any real uncommitted work makes git refuse and warn instead.
-    if [[ -z "$(git -C "$wt" status --porcelain 2>/dev/null | awk '$2 != ".env"')" ]]; then
+    # Ignore the files gwa seeded (GW_COPY_FILES): if the worktree is otherwise clean,
+    # remove it silently; any real uncommitted work makes git refuse and warn instead.
+    local -a dirty
+    local line p
+    for line in "${(@f)$(git -C "$wt" status --porcelain -uall 2>/dev/null)}"; do
+        [[ -z "$line" ]] && continue
+        p="${line[4,-1]}"                            # strip the "XY " status prefix
+        (( ${GW_COPY_FILES[(Ie)$p]} )) && continue   # skip files gwa seeded
+        dirty+=("$p")
+    done
+    if (( ${#dirty} == 0 )); then
         git worktree remove --force "$wt"
     else
         git worktree remove "$wt"
@@ -154,7 +173,7 @@ function _gw_help() {
     cat <<EOF
 git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
 
-  gwa [-c | -o] <branch> [<start-point>]   create a worktree (copies root .env)
+  gwa [-c | -o] <branch> [<start-point>]   create a worktree (seeds GW_COPY_FILES)
                                            -c  copy an "open in VS Code" command (default)
                                            -o  open it in a new VS Code window
   gwo [<branch>]                         open a worktree in VS Code (most recent if omitted)
