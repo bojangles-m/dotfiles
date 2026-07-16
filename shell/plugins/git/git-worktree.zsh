@@ -14,7 +14,7 @@ function _gw_repo_dir() {
         return 1
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
-    REPO_DIR="$WORKTREE_DIR/${common:h:t}"    # -> $WORKTREE_DIR/repo
+    REPO_DIR="$WORKTREE_DIR/${common:h:t}"   # -> $WORKTREE_DIR/repo
 }
 
 # Copy a ready-to-run "open in VS Code" command to the clipboard.
@@ -102,6 +102,27 @@ function gwo() {
     _gw_open "$wt"
 }
 
+# cd into a worktree. Without <branch>, cd into recently created worktree.
+# gwcd [<branch>]
+function gwcd() {
+    local wt
+    if [[ -n "$1" ]]; then
+        _gw_repo_dir || return 1
+        wt="$REPO_DIR/${1//\//-}"
+    else
+        wt="$GW_LAST"
+    fi
+    if [[ -z "$wt" ]]; then
+        echo "usage: gwcd <branch>   (or run gwa first, then bare gwcd)" >&2
+        return 1
+    fi
+    if [[ ! -d "$wt" ]]; then
+        echo "gwcd: no worktree at $wt" >&2
+        return 1
+    fi
+    cd "$wt"
+}
+
 # Removes the worktree gwa created for <branch>
 # gwr <branch> [extra flags]
 function gwr() {
@@ -129,7 +150,6 @@ function gwr() {
     fi
 }
 
-# Print help for the gw worktree commands.
 function _gw_help() {
     cat <<EOF
 git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
@@ -138,6 +158,7 @@ git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
                                            -c  copy an "open in VS Code" command (default)
                                            -o  open it in a new VS Code window
   gwo [<branch>]                         open a worktree in VS Code (most recent if omitted)
+  gwcd [<branch>]                        cd into a worktree (most recent if omitted)
   gwr <branch> [--force]                 remove a worktree
   gwl                                    list worktrees
   gwp                                    prune stale worktree entries
