@@ -1,7 +1,13 @@
+GWT_VERSION="1.0.0"
+
 # All worktrees live under $WORKTREE_DIR/<repo-name>/<branch>.
 # Override the base folder by exporting WORKTREE_DIR before the shell loads.
 : ${WORKTREE_DIR:="$HOME/dev/workspace"}
-GWT_VERSION="1.0.0"
+
+# Command run inside each new worktree after creation, e.g. 'pnpm install'.
+# Default Empty = do nothing.
+# Control it from your shell: export GWT_POST_CREATE='pnpm install'
+: ${GWT_POST_CREATE:=""}
 
 # Copy ignored files only if it exists in the source checkout
 GWT_COPY_FILES=(
@@ -85,6 +91,13 @@ function gwa() {
     GW_LAST="$wt"
 
     echo "worktree: $wt"
+
+    # Optional shell-controlled bootstrap (e.g. GWT_POST_CREATE='pnpm install').
+    if [[ -n "$GWT_POST_CREATE" ]]; then
+        ( cd "$wt" && eval "$GWT_POST_CREATE" ) \
+            || echo "gwa: post-create command failed — worktree kept at $wt" >&2
+    fi
+
     case "$action" in
         copy) _gw_copy_vscode "$wt" ;;
         open) _gw_open "$wt" ;;
@@ -171,17 +184,30 @@ function gwr() {
 
 function _gw_help() {
     cat <<EOF
-git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
+git worktree helpers
+Worktrees are created under: $WORKTREE_DIR/<repo>/<branch>
 
-  gwa [-c | -o] <branch> [<start-point>]   create a worktree (seeds GWT_COPY_FILES)
-                                           -c  copy an "open in VS Code" command (default)
-                                           -o  open it in a new VS Code window
-  gwo [<branch>]                         open a worktree in VS Code (most recent if omitted)
-  gwcd [<branch>]                        cd into a worktree (most recent if omitted)
-  gwr <branch> [--force]                 remove a worktree
-  gwl                                    list worktrees
-  gwp                                    prune stale worktree entries
-  gwt [-v | -h]                            show this help / version
+Usage:
+  gwa [-c | -o] <branch> [<start-point>]
+      Create a new worktree.
+        -c    Copy an "Open in VS Code" command to the clipboard (default)
+        -o    Open the worktree in a new VS Code window
+
+  gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
+  gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
+  gwr <branch> [--force]            Remove a worktree.
+  gwl                               List all worktrees.
+  gwp                               Prune stale worktree entries.
+  gwt [-v | -h]                     Show this help or version.
+
+Configuration:
+  Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
+        WORKTREE_DIR        base folder that holds all worktrees
+                            e.g.  export WORKTREE_DIR=~/dev/wt
+        GWT_COPY_FILES      gitignored files copied into each new worktree (if present)
+                            e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
+        GWT_POST_CREATE     command run inside the new worktree after it is created
+                            e.g.  GWT_POST_CREATE='pnpm install' gwa my-branch
 EOF
 }
 
