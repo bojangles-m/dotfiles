@@ -9,8 +9,9 @@ GWT_VERSION="1.0.0"
 # Control it from your shell: export GWT_POST_CREATE='pnpm install'
 : ${GWT_POST_CREATE:=""}
 
-# Copy ignored files only if it exists in the source checkout
-GWT_COPY_FILES=(
+# Gitignored files copied into each new worktree (only the ones that exist).
+# Override files by exporting GWT_COPY_FILES before the shell loads.
+(( ${+GWT_COPY_FILES} )) || GWT_COPY_FILES=(
     .env                                    # FE
     application/config/config-private.php   # BE
     .vscode/launch.json                     # optional
