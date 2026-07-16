@@ -1,10 +1,10 @@
 # All worktrees live under $WORKTREE_DIR/<repo-name>/<branch>.
 # Override the base folder by exporting WORKTREE_DIR before the shell loads.
 : ${WORKTREE_DIR:="$HOME/dev/workspace"}
-GW_VERSION="1.0.0"
+GWT_VERSION="1.0.0"
 
 # Copy ignored files only if it exists in the source checkout
-GW_COPY_FILES=(
+GWT_COPY_FILES=(
     .env                                    # FE
     application/config/config-private.php   # BE
     .vscode/launch.json                     # optional
@@ -75,7 +75,7 @@ function gwa() {
 
     # Worktrees omit gitignored files; seed the ones this repo needs
     local f
-    for f in $GW_COPY_FILES; do
+    for f in $GWT_COPY_FILES; do
         [[ -f "$src/$f" ]] || continue
         mkdir -p "$wt/${f:h}"
         cp "$src/$f" "$wt/$f"
@@ -152,14 +152,14 @@ function gwr() {
         return
     fi
 
-    # Ignore the files gwa seeded (GW_COPY_FILES): if the worktree is otherwise clean,
+    # Ignore the files gwa seeded (GWT_COPY_FILES): if the worktree is otherwise clean,
     # remove it silently; any real uncommitted work makes git refuse and warn instead.
     local -a dirty
     local line p
     for line in "${(@f)$(git -C "$wt" status --porcelain -uall 2>/dev/null)}"; do
         [[ -z "$line" ]] && continue
         p="${line[4,-1]}"                            # strip the "XY " status prefix
-        (( ${GW_COPY_FILES[(Ie)$p]} )) && continue   # skip files gwa seeded
+        (( ${GWT_COPY_FILES[(Ie)$p]} )) && continue   # skip files gwa seeded
         dirty+=("$p")
     done
     if (( ${#dirty} == 0 )); then
@@ -173,7 +173,7 @@ function _gw_help() {
     cat <<EOF
 git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
 
-  gwa [-c | -o] <branch> [<start-point>]   create a worktree (seeds GW_COPY_FILES)
+  gwa [-c | -o] <branch> [<start-point>]   create a worktree (seeds GWT_COPY_FILES)
                                            -c  copy an "open in VS Code" command (default)
                                            -o  open it in a new VS Code window
   gwo [<branch>]                         open a worktree in VS Code (most recent if omitted)
@@ -191,8 +191,8 @@ EOF
 #   -h : help
 function gwt() {
     case "$1" in
-        -v) echo "gwt $GW_VERSION" ;;
+        -v) echo "gwt $GWT_VERSION" ;;
         -h) _gw_help ;;
-        *)  _gw_help; echo; echo "version: $GW_VERSION" ;;
+        *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
     esac
 }
