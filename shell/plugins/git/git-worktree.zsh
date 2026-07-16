@@ -21,6 +21,56 @@ GWT_VERSION="1.0.2"
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
+
+# Help for the gw worktree commands.
+# gwt [-v | -h] (no args: help + version)
+#   -v : version    
+#   -h : help
+function gwt() {
+    case "$1" in
+        -v) echo "gwt $GWT_VERSION" ;;
+        -h) _gw_help ;;
+        *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
+    esac
+}
+
+
+function _gw_help() {
+    cat <<EOF
+git worktree helpers
+Worktrees are created under: $WORKTREE_DIR/<repo>/<branch>
+
+Usage:
+  gwa [-c | -o] <branch> [<start-point>]
+      Create a new worktree.
+        -c    Copy an "Open in VS Code" command to the clipboard (default)
+        -o    Open the worktree in a new VS Code window
+
+  gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
+  gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
+
+  gwr [-d | -D] <branch> [--force]
+      Remove a worktree. The branch is KEPT unless you pass -d/-D.
+        -d    Also delete the branch — safe: git refuses if it has unmerged commits.
+              (A branch with no commits of its own is deleted; nothing is lost.)
+        -D    Also delete the branch — force: deletes even with unmerged commits.
+
+  gwclean                           Remove worktrees whose branch is merged into origin/main or gone.
+  gwl                               List all worktrees.
+  gwp                               Prune stale worktree entries.
+  gwt [-v | -h]                     Show this help or version.
+
+Configuration:
+  Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
+        WORKTREE_DIR        base folder that holds all worktrees
+                            e.g.  export WORKTREE_DIR=~/dev/wt
+        GWT_COPY_FILES      gitignored files copied into each new worktree (if present)
+                            e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
+        GWT_POST_CREATE     command run inside the new worktree after it is created
+                            e.g.  GWT_POST_CREATE='pnpm install' gwa my-branch
+EOF
+}
+
 # Sets the global REPO_DIR to $WORKTREE_DIR/<repo-name> for the current repo.
 function _gw_repo_dir() {
     local common
@@ -258,53 +308,7 @@ function gwclean() {
     fi
 }
 
-function _gw_help() {
-    cat <<EOF
-git worktree helpers
-Worktrees are created under: $WORKTREE_DIR/<repo>/<branch>
 
-Usage:
-  gwa [-c | -o] <branch> [<start-point>]
-      Create a new worktree.
-        -c    Copy an "Open in VS Code" command to the clipboard (default)
-        -o    Open the worktree in a new VS Code window
-
-  gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
-  gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
-
-  gwr [-d | -D] <branch> [--force]
-      Remove a worktree. The branch is KEPT unless you pass -d/-D.
-        -d    Also delete the branch — safe: git refuses if it has unmerged commits.
-              (A branch with no commits of its own is deleted; nothing is lost.)
-        -D    Also delete the branch — force: deletes even with unmerged commits.
-
-  gwclean                           Remove worktrees whose branch is merged into origin/main or gone.
-  gwl                               List all worktrees.
-  gwp                               Prune stale worktree entries.
-  gwt [-v | -h]                     Show this help or version.
-
-Configuration:
-  Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
-        WORKTREE_DIR        base folder that holds all worktrees
-                            e.g.  export WORKTREE_DIR=~/dev/wt
-        GWT_COPY_FILES      gitignored files copied into each new worktree (if present)
-                            e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
-        GWT_POST_CREATE     command run inside the new worktree after it is created
-                            e.g.  GWT_POST_CREATE='pnpm install' gwa my-branch
-EOF
-}
-
-# Help for the gw worktree commands.
-# gwt [-v | -h] (no args: help + version)
-#   -v : version    
-#   -h : help
-function gwt() {
-    case "$1" in
-        -v) echo "gwt $GWT_VERSION" ;;
-        -h) _gw_help ;;
-        *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
-    esac
-}
 
 # ---------------------------------------------------------------------------
 # Tab completion
