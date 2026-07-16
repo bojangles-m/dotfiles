@@ -9,6 +9,11 @@ GWT_VERSION="1.0.2"
 # Control it from your shell: export GWT_POST_CREATE='pnpm install'
 : ${GWT_POST_CREATE:=""}
 
+# Command used to open a worktree ({} = its path; if absent, the path is appended)
+# Default is VS Code.
+# Control it from your shell: export GWT_OPEN_CMD='cursor {}'
+: ${GWT_OPEN_CMD:='code -n && code -a {}'}
+
 # Gitignored files copied into each new worktree (only the ones that exist).
 # Override files by exporting GWT_COPY_FILES before the shell loads.
 (( ${+GWT_COPY_FILES} )) || GWT_COPY_FILES=(
@@ -22,9 +27,6 @@ alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
 # Help for the gw worktree commands.
-# gwt [-v | -h] (no args: help + version)
-#   -v : version    
-#   -h : help
 function gwt() {
     case "$1" in
         -v) echo "gwt $GWT_VERSION" ;;
@@ -41,10 +43,11 @@ Worktrees are created under: $WORKTREE_DIR/<repo>/<branch>
 Usage:
   gwa [-c | -o] <branch> [<start-point>]
       Create a new worktree.
-        -c    Copy an "Open in VS Code" command to the clipboard (default)
-        -o    Open the worktree in a new VS Code window
+        -c    Copy the "open" command to the clipboard (default)
+        -o    Open the worktree in your editor
+              (both use \$GWT_OPEN_CMD — VS Code by default)
 
-  gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
+  gwo [<branch>]                    Open a worktree in your editor. Opens the most recently if <branch> is omitted.
   gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
 
   gwr [-d | -D] <branch> [--force]
@@ -66,13 +69,16 @@ Configuration:
                             e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
         GWT_POST_CREATE     command run inside the new worktree after it is created
                             e.g.  GWT_POST_CREATE='pnpm install' gwa my-branch
+        GWT_OPEN_CMD        command used to open a worktree ({} = its path)
+                            default: code -n && code -a {}
+                            e.g.  export GWT_OPEN_CMD='cursor {}'
 EOF
 }
 
 # Worktree at $WORKTREE_DIR/<repo>/<branch>
 # gwa [-c | -o] <branch> [<start-point>]
-#   -c : copy a "vscode -n && vscode -a <path>" command to the clipboard (default)
-#   -o : open the new worktree in a new VS Code window, folder added to the workspace
+#   -c : copy the open-command ($GWT_OPEN_CMD) to the clipboard (default)
+#   -o : open the new worktree via $GWT_OPEN_CMD
 function gwa() {
     # Post-create action; defaults to copying the open-command. Add more flags below.
     local action="copy"
@@ -106,7 +112,7 @@ function gwa() {
             open) echo "gwa: '$branch' already has a worktree at $existing — opening it"
                   _gw_open "$existing" ;;
             copy) echo "gwa: '$branch' already has a worktree at $existing"
-                  _gw_copy_vscode "$existing" ;;
+                  _gw_copy "$existing" ;;
         esac
         return 0
     fi
@@ -140,13 +146,13 @@ function gwa() {
     fi
 
     case "$action" in
-        copy) _gw_copy_vscode "$wt" ;;
+        copy) _gw_copy "$wt" ;;
         open) _gw_open "$wt" ;;
     esac
 }
 
 
-# Open a worktree in a new VS Code window.
+# Open a worktree via $GWT_OPEN_CMD (VS Code by default).
 # With no <branch>, opens the worktree gwa created most recently (this shell).
 # gwo [<branch>]
 function gwo() {
@@ -304,16 +310,28 @@ function _gw_worktree_for_branch() {
     return 1
 }
 
-# Copy a ready-to-run "open in VS Code" command to the clipboard.
-function _gw_copy_vscode() {
-    command -v pbcopy >/dev/null || return 0
-    printf 'vscode -n && vscode -a %s' "$1" | pbcopy
+# Expand $GWT_OPEN_CMD for path <$1>: substitute {} (or append if absent).
+# <$2> = quoting style for the path: 'q' shell-quotes it (safe for eval),
+# anything else wraps it in plain double quotes (readable, for clipboard).
+function _gw_open_cmd() {
+    local ph='{}' p
+    [[ "$2" == q ]] && p="${(q)1}" || p="\"$1\""
+    if [[ "$GWT_OPEN_CMD" == *"$ph"* ]]; then
+        print -r -- "${GWT_OPEN_CMD//$ph/$p}"
+    else
+        print -r -- "$GWT_OPEN_CMD $p"
+    fi
 }
 
-# Open the path in a new VS Code window with folder added to the workspace.
+# Copy a ready-to-run "open" command (per $GWT_OPEN_CMD) to the clipboard.
+function _gw_copy() {
+    command -v pbcopy >/dev/null || return 0
+    _gw_open_cmd "$1" | pbcopy
+}
+
+# Open the worktree at <path> using $GWT_OPEN_CMD.
 function _gw_open() {
-    command -v code >/dev/null || { echo "gw: 'code' not found on PATH" >&2; return 1; }
-    code -n && code -a "$1"
+    eval "$(_gw_open_cmd "$1" q)"
 }
 
 # True if the worktree at <path> has no real changes.
