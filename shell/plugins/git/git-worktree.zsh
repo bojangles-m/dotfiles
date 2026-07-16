@@ -1,13 +1,13 @@
 GWT_VERSION="1.0.2"
 
-# All worktrees live under $WORKTREE_DIR/<repo-name>/<branch>.
-# Override the base folder by exporting WORKTREE_DIR before the shell loads.
-: ${WORKTREE_DIR:="$HOME/dev/workspace"}
+# All worktrees live under $GWT_WORKTREE_DIR/<repo-name>/<branch>.
+# Override the base folder by exporting GWT_WORKTREE_DIR before the shell loads.
+: ${GWT_WORKTREE_DIR:="$HOME/dev/workspace"}
 
 # Command run inside each new worktree after creation, e.g. 'pnpm install'.
 # Default Empty = do nothing.
-# Control it from your shell: export GWT_POST_CREATE='pnpm install'
-: ${GWT_POST_CREATE:=""}
+# Control it from your shell: export GWT_POST_INIT_CMD='pnpm install'
+: ${GWT_POST_INIT_CMD:=""}
 
 # Command used to open a worktree ({} = its path; if absent, the path is appended)
 # Default is VS Code.
@@ -38,7 +38,7 @@ function gwt() {
 function _gw_help() {
     cat <<EOF
 git worktree helpers
-Worktrees are created under: $WORKTREE_DIR/<repo>/<branch>
+Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 
 Usage:
   gwa [-c | -o] <branch> [<start-point>]
@@ -63,19 +63,19 @@ Usage:
 
 Configuration:
   Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
-        WORKTREE_DIR        base folder that holds all worktrees
-                            e.g.  export WORKTREE_DIR=~/dev/wt
+        GWT_WORKTREE_DIR        base folder that holds all worktrees
+                            e.g.  export GWT_WORKTREE_DIR=~/dev/wt
         GWT_COPY_FILES      gitignored files copied into each new worktree (if present)
                             e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
-        GWT_POST_CREATE     command run inside the new worktree after it is created
-                            e.g.  GWT_POST_CREATE='pnpm install' gwa my-branch
+        GWT_POST_INIT_CMD     command run inside the new worktree after it is created
+                            e.g.  GWT_POST_INIT_CMD='pnpm install' gwa my-branch
         GWT_OPEN_CMD        command used to open a worktree ({} = its path)
                             default: code -n && code -a {}
                             e.g.  export GWT_OPEN_CMD='cursor {}'
 EOF
 }
 
-# Worktree at $WORKTREE_DIR/<repo>/<branch>
+# Worktree at $GWT_WORKTREE_DIR/<repo>/<branch>
 # gwa [-c | -o] <branch> [<start-point>]
 #   -c : copy the open-command ($GWT_OPEN_CMD) to the clipboard (default)
 #   -o : open the new worktree via $GWT_OPEN_CMD
@@ -101,13 +101,13 @@ function gwa() {
 
     local src wt
     src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
-    wt="$REPO_DIR/${branch//\//-}"
+    wt="$GWT_REPO_DIR/${branch//\//-}"
 
     # If this branch already has a worktree, reuse it instead of failing.
     local existing
     existing="$(_gw_worktree_for_branch "$branch")"
     if [[ -n "$existing" ]]; then
-        GW_LAST="$existing"
+        GWT_LAST="$existing"
         case "$action" in
             open) echo "gwa: '$branch' already has a worktree at $existing — opening it"
                   _gw_open "$existing" ;;
@@ -135,13 +135,13 @@ function gwa() {
     done
 
     # Remember the most recent worktree so a bare `gwo` can reopen it.
-    GW_LAST="$wt"
+    GWT_LAST="$wt"
 
     echo "worktree: $wt"
 
-    # Optional shell-controlled bootstrap (e.g. GWT_POST_CREATE='pnpm install').
-    if [[ -n "$GWT_POST_CREATE" ]]; then
-        ( cd "$wt" && eval "$GWT_POST_CREATE" ) \
+    # Optional shell-controlled bootstrap (e.g. GWT_POST_INIT_CMD='pnpm install').
+    if [[ -n "$GWT_POST_INIT_CMD" ]]; then
+        ( cd "$wt" && eval "$GWT_POST_INIT_CMD" ) \
             || echo "gwa: post-create command failed — worktree kept at $wt" >&2
     fi
 
@@ -159,9 +159,9 @@ function gwo() {
     local wt
     if [[ -n "$1" ]]; then
         _gw_repo_dir || return 1
-        wt="$REPO_DIR/${1//\//-}"
+        wt="$GWT_REPO_DIR/${1//\//-}"
     else
-        wt="$GW_LAST"
+        wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
         echo "usage: gwo <branch>   (or run gwa first, then bare gwo)" >&2
@@ -180,9 +180,9 @@ function gwcd() {
     local wt
     if [[ -n "$1" ]]; then
         _gw_repo_dir || return 1
-        wt="$REPO_DIR/${1//\//-}"
+        wt="$GWT_REPO_DIR/${1//\//-}"
     else
-        wt="$GW_LAST"
+        wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
         echo "usage: gwcd <branch>   (or run gwa first, then bare gwcd)" >&2
@@ -218,7 +218,7 @@ function gwr() {
         return 1
     fi
     _gw_repo_dir || return 1
-    local wt="$REPO_DIR/${branch//\//-}"
+    local wt="$GWT_REPO_DIR/${branch//\//-}"
 
     # Capture the branch checked out in the worktree before removing it, so the
     # delete targets the right ref even when <branch> was given in flattened form.
@@ -254,8 +254,8 @@ function gwclean() {
     _gw_repo_dir || return 1
     git fetch --prune --quiet origin 2>/dev/null
 
-    local -a wts=(${REPO_DIR}/*(/N))
-    (( ${#wts} )) || { echo "gwclean: no worktrees under $REPO_DIR"; return 0; }
+    local -a wts=(${GWT_REPO_DIR}/*(/N))
+    (( ${#wts} )) || { echo "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
 
     local default_br
     default_br="${$(_gw_default_branch)#origin/}"
@@ -290,7 +290,7 @@ function gwclean() {
     fi
 }
 
-# Sets the global REPO_DIR to $WORKTREE_DIR/<repo-name> for the current repo.
+# Sets the global GWT_REPO_DIR to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
 function _gw_repo_dir() {
     local common
     common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
@@ -298,7 +298,7 @@ function _gw_repo_dir() {
         return 1
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
-    REPO_DIR="$WORKTREE_DIR/${common:h:t}"   # -> $WORKTREE_DIR/repo
+    GWT_REPO_DIR="$GWT_WORKTREE_DIR/${common:h:t}"   # -> $GWT_WORKTREE_DIR/repo
 }
 
 # Print the path of the worktree that has <branch> checked out, if any.
@@ -386,11 +386,11 @@ function _gw_complete_branches() {
     compadd -- ${names:#HEAD}
 }
 
-# gwo / gwcd / gwr: complete names of existing worktrees under $REPO_DIR.
+# gwo / gwcd / gwr: complete names of existing worktrees under $GWT_REPO_DIR.
 function _gw_complete_worktrees() {
     _gw_repo_dir 2>/dev/null || return
     local -a wts
-    wts=(${REPO_DIR}/*(/N))   # (/) dirs only, N nullglob
+    wts=(${GWT_REPO_DIR}/*(/N))   # (/) dirs only, N nullglob
     compadd -- ${wts:t}       # :t -> basenames
 }
 
