@@ -44,6 +44,24 @@ function _gw_open() {
     code -n && code -a "$1"
 }
 
+# True if the worktree at <path> has no real changes.
+function _gw_worktree_is_clean() {
+    local line p
+    for line in "${(@f)$(git -C "$1" status --porcelain -uall 2>/dev/null)}"; do
+        [[ -z "$line" ]] && continue
+        p="${line[4,-1]}"                          # strip the "XY " status prefix
+        (( ${GWT_COPY_FILES[(Ie)$p]} )) && continue
+        return 1                                   # a real change -> not clean
+    done
+    return 0
+}
+
+# True if branch <name> is merged into origin/main or its upstream is gone.
+function _gw_branch_stale() {
+    git merge-base --is-ancestor "refs/heads/$1" origin/main 2>/dev/null && return 0
+    [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
+}
+
 # Worktree at $WORKTREE_DIR/<repo>/<branch>
 # gwa [-c | -o] <branch> [<start-point>]
 #   -c : copy a "vscode -n && vscode -a <path>" command to the clipboard (default)
@@ -148,38 +166,86 @@ function gwcd() {
     cd "$wt"
 }
 
-# Removes the worktree gwa created for <branch>
-# gwr <branch> [extra flags]
+# Remove the worktree gwa created for <branch>.
+# gwr [-D] <branch> [git-worktree-remove flags, e.g. --force]
+#   -D : also delete the branch after removing the worktree
 function gwr() {
-    local branch="$1"
+    local delete_branch=0
+    local -a pos passthru
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            -D) delete_branch=1 ;;
+            -*) passthru+=("$arg") ;;   # e.g. --force -> git worktree remove
+            *)  pos+=("$arg") ;;
+        esac
+    done
+
+    local branch="${pos[1]}"
     if [[ -z "$branch" ]]; then
-        echo "usage: gwr <branch> [--force]" >&2
+        echo "usage: gwr [-D] <branch> [--force]" >&2
         return 1
     fi
     _gw_repo_dir || return 1
     local wt="$REPO_DIR/${branch//\//-}"
-    shift
 
-    # Explicit flags (e.g. --force) pass straight through.
-    if (( $# )); then
-        git worktree remove "$wt" "$@"
-        return
+    # Capture the branch checked out in the worktree before removing it, so -D
+    # deletes the right ref even when <branch> was given in flattened form.
+    local wt_branch=""
+    (( delete_branch )) && wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+
+    # Explicit flags -> pass straight through. Otherwise: clean (bar seeded files)
+    # removes silently with --force; real uncommitted work makes git refuse & warn.
+    if (( ${#passthru} )); then
+        git worktree remove "$wt" "${passthru[@]}" || return 1
+    elif _gw_worktree_is_clean "$wt"; then
+        git worktree remove --force "$wt" || return 1
+    else
+        git worktree remove "$wt" || return 1
     fi
 
-    # Ignore the files gwa seeded (GWT_COPY_FILES): if the worktree is otherwise clean,
-    # remove it silently; any real uncommitted work makes git refuse and warn instead.
-    local -a dirty
-    local line p
-    for line in "${(@f)$(git -C "$wt" status --porcelain -uall 2>/dev/null)}"; do
-        [[ -z "$line" ]] && continue
-        p="${line[4,-1]}"                            # strip the "XY " status prefix
-        (( ${GWT_COPY_FILES[(Ie)$p]} )) && continue   # skip files gwa seeded
-        dirty+=("$p")
+    if (( delete_branch )) && [[ -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
+        git branch -D "$wt_branch"
+    fi
+}
+
+# Remove worktrees whose branch is merged into origin/main or gone from origin,
+# then delete those branches. Dirty worktrees and main/master are skipped.
+# gwclean
+function gwclean() {
+    _gw_repo_dir || return 1
+    git fetch --prune --quiet origin 2>/dev/null
+
+    local -a wts=(${REPO_DIR}/*(/N))
+    (( ${#wts} )) || { echo "gwclean: no worktrees under $REPO_DIR"; return 0; }
+
+    local d br x
+    local -a removed skipped
+    for d in $wts; do
+        br="$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+        [[ -z "$br" || "$br" == HEAD || "$br" == (main|master) ]] && continue
+        _gw_branch_stale "$br" || continue
+        if ! _gw_worktree_is_clean "$d"; then
+            skipped+=("${d:t} ($br) — uncommitted changes")
+            continue
+        fi
+        if git worktree remove --force "$d" 2>/dev/null; then
+            git branch -D "$br" >/dev/null 2>&1
+            removed+=("${d:t} ($br)")
+        else
+            skipped+=("${d:t} ($br) — remove failed")
+        fi
     done
-    if (( ${#dirty} == 0 )); then
-        git worktree remove --force "$wt"
+
+    if (( ${#removed} )); then
+        echo "gwclean: removed ${#removed} worktree(s):"
+        for x in $removed; do echo "  $x"; done
     else
-        git worktree remove "$wt"
+        echo "gwclean: nothing to clean"
+    fi
+    if (( ${#skipped} )); then
+        echo "gwclean: skipped ${#skipped}:"
+        for x in $skipped; do echo "  $x"; done
     fi
 }
 
@@ -196,7 +262,8 @@ Usage:
 
   gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
   gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
-  gwr <branch> [--force]            Remove a worktree.
+  gwr [-D] <branch> [--force]       Remove a worktree. -D also deletes its branch.
+  gwclean                           Remove worktrees whose branch is merged into origin/main or gone.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
