@@ -26,12 +26,38 @@ GWT_VERSION="1.0.2"
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
+# ---------------------------------------------------------------------------
+# Logging — info to stdout; note/warn/error to stderr
+# ---------------------------------------------------------------------------
+
+# The public gw command that triggered the message: first non-internal frame.
+function _gw_cmd() {
+    local f
+    for f in $funcstack; do
+        [[ $f == _gw_* ]] && continue
+        print -r -- "$f"; return
+    done
+    print -r -- gw
+}
+
+# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
+function _gw_emit() {
+    local msg="$(_gw_cmd): $2"
+    [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
+    print -r -- "$msg" >&2
+}
+
+function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
+function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
+function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
+function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
+
 # Help for the gw worktree commands.
 function gwt() {
     case "$1" in
-        -v) echo "gwt $GWT_VERSION" ;;
+        -v) _gw_info "gwt $GWT_VERSION" ;;
         -h) _gw_help ;;
-        *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
+        *)  _gw_help; echo; _gw_info "version: $GWT_VERSION" ;;
     esac
 }
 
@@ -94,7 +120,7 @@ function gwa() {
 
     local branch="${pos[1]}"
     if [[ -z "$branch" ]]; then
-        echo "usage: gwa [-c|-o] <branch> [<start-point>]" >&2
+        _gw_error "usage: [-c|-o] <branch> [<start-point>]"
         return 1
     fi
     _gw_repo_dir || return 1
@@ -109,9 +135,9 @@ function gwa() {
     if [[ -n "$existing" ]]; then
         GWT_LAST="$existing"
         case "$action" in
-            open) echo "gwa: '$branch' already has a worktree at $existing — opening it"
+            open) _gw_info "'$branch' already has a worktree at $existing — opening it"
                   _gw_open "$existing" ;;
-            copy) echo "gwa: '$branch' already has a worktree at $existing"
+            copy) _gw_info "'$branch' already has a worktree at $existing"
                   _gw_copy "$existing" ;;
         esac
         return 0
@@ -120,7 +146,7 @@ function gwa() {
     if git show-ref --verify --quiet "refs/heads/$branch"; then
         git worktree add "$wt" "$branch" >/dev/null || return 1
     elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-        print -r -- $'\e[38;5;208m'"gwa: The '$branch' already exists on origin — creating from origin/$branch, not HEAD"$'\e[0m'
+        _gw_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
         git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
     else
         git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" >/dev/null || return 1
@@ -137,12 +163,12 @@ function gwa() {
     # Remember the most recent worktree so a bare `gwo` can reopen it.
     GWT_LAST="$wt"
 
-    echo "worktree: $wt"
+    _gw_info "worktree: $wt"
 
     # Optional shell-controlled bootstrap (e.g. GWT_POST_INIT_CMD='pnpm install').
     if [[ -n "$GWT_POST_INIT_CMD" ]]; then
         ( cd "$wt" && eval "$GWT_POST_INIT_CMD" ) \
-            || echo "gwa: post-create command failed — worktree kept at $wt" >&2
+            || _gw_error "post-create command failed — worktree kept at $wt"
     fi
 
     case "$action" in
@@ -164,11 +190,11 @@ function gwo() {
         wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
-        echo "usage: gwo <branch>   (or run gwa first, then bare gwo)" >&2
+        _gw_error "usage: <branch>   (or run gwa first, then bare gwo)"
         return 1
     fi
     if [[ ! -d "$wt" ]]; then
-        echo "gwo: no worktree at $wt" >&2
+        _gw_error "no worktree at $wt"
         return 1
     fi
     _gw_open "$wt"
@@ -185,11 +211,11 @@ function gwcd() {
         wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
-        echo "usage: gwcd <branch>   (or run gwa first, then bare gwcd)" >&2
+        _gw_error "usage: <branch>   (or run gwa first, then bare gwcd)"
         return 1
     fi
     if [[ ! -d "$wt" ]]; then
-        echo "gwcd: no worktree at $wt" >&2
+        _gw_error "no worktree at $wt"
         return 1
     fi
     cd "$wt"
@@ -214,7 +240,7 @@ function gwr() {
 
     local branch="${pos[1]}"
     if [[ -z "$branch" ]]; then
-        echo "usage: gwr [-d|-D] <branch> [--force]" >&2
+        _gw_error "usage: [-d|-D] <branch> [--force]"
         return 1
     fi
     _gw_repo_dir || return 1
@@ -242,7 +268,7 @@ function gwr() {
         if git branch "$delete_flag" "$wt_branch"; then
             # Make the "why did it delete?" self-evident: an empty branch is safe.
             [[ "$unique" == 0 ]] && \
-                echo "gwr: branch '$wt_branch' had no unique commits — nothing was lost"
+                _gw_info "branch '$wt_branch' had no unique commits — nothing was lost"
         fi
     fi
 }
@@ -255,7 +281,7 @@ function gwclean() {
     git fetch --prune --quiet origin 2>/dev/null
 
     local -a wts=(${GWT_REPO_DIR}/*(/N))
-    (( ${#wts} )) || { echo "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
+    (( ${#wts} )) || { _gw_info "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
 
     local default_br
     default_br="${$(_gw_default_branch)#origin/}"
@@ -279,14 +305,14 @@ function gwclean() {
     done
 
     if (( ${#removed} )); then
-        echo "gwclean: removed ${#removed} worktree(s):"
-        for x in $removed; do echo "  $x"; done
+        _gw_info "gwclean: removed ${#removed} worktree(s):"
+        for x in $removed; do _gw_info "  $x"; done
     else
-        echo "gwclean: nothing to clean"
+        _gw_info "gwclean: nothing to clean"
     fi
     if (( ${#skipped} )); then
-        echo "gwclean: skipped ${#skipped}:"
-        for x in $skipped; do echo "  $x"; done
+        _gw_info "gwclean: skipped ${#skipped}:"
+        for x in $skipped; do _gw_info "  $x"; done
     fi
 }
 
@@ -294,7 +320,7 @@ function gwclean() {
 function _gw_repo_dir() {
     local common
     common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
-        echo "gw: not inside a git repository" >&2
+        _gw_error "current directory is not inside a git repository"
         return 1
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
