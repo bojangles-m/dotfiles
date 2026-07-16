@@ -1,6 +1,7 @@
 # All worktrees live under $WORKTREE_DIR/<repo-name>/<branch>.
 # Override the base folder by exporting WORKTREE_DIR before the shell loads.
 : ${WORKTREE_DIR:="$HOME/dev/workspace"}
+GW_VERSION="1.0.0"
 
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
@@ -28,11 +29,10 @@ function _gw_open() {
     code -n && code -a "$1"
 }
 
-# gwa [-c | -o] <branch> [<start-point>]  -> worktree at $WORKTREE_DIR/<repo>/<branch>
-# Existing branch -> checked out; new branch -> created from <start-point> (default HEAD).
-# After creating, prints the worktree path, then:
+# Worktree at $WORKTREE_DIR/<repo>/<branch>
+# gwa [-c | -o] <branch> [<start-point>]
 #   -c : copy a "vscode -n && vscode -a <path>" command to the clipboard (default)
-#   -o : open the new worktree in a new VS Code window
+#   -o : open the new worktree in a new VS Code window, folder added to the workspace
 function gwa() {
     # Post-create action; defaults to copying the open-command. Add more flags below.
     local action="copy"
@@ -124,4 +124,32 @@ function gwr() {
     else
         git worktree remove "$wt"
     fi
+}
+
+# Print help for the gw worktree commands.
+function _gw_help() {
+    cat <<EOF
+git worktree helpers — worktrees live under: $WORKTREE_DIR/<repo>/<branch>
+
+  gwa [-c | -o] <branch> [<start-point>]   create a worktree (copies root .env)
+                                           -c  copy an "open in VS Code" command (default)
+                                           -o  open it in a new VS Code window
+  gwo [<branch>]                         open a worktree in VS Code (most recent if omitted)
+  gwr <branch> [--force]                 remove a worktree
+  gwl                                    list worktrees
+  gwp                                    prune stale worktree entries
+  gwt [-v | -h]                            show this help / version
+EOF
+}
+
+# Help for the gw worktree commands.
+# gwt [-v | -h] (no args: help + version)
+#   -v : version    
+#   -h : help
+function gwt() {
+    case "$1" in
+        -v) echo "gwt $GW_VERSION" ;;
+        -h) _gw_help ;;
+        *)  _gw_help; echo; echo "version: $GW_VERSION" ;;
+    esac
 }
