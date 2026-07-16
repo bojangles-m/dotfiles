@@ -58,6 +58,9 @@ function gwa() {
     wt="$REPO_DIR/${branch//\//-}"
     if git show-ref --verify --quiet "refs/heads/$branch"; then
         git worktree add "$wt" "$branch" || return 1
+    elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        print -r -- $'\e[38;5;208m'"gwa: The '$branch' already exists on origin — creating from origin/$branch, not HEAD"$'\e[0m'
+        git worktree add --track -b "$branch" "$wt" "origin/$branch" || return 1
     else
         git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" || return 1
     fi
