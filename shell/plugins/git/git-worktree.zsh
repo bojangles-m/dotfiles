@@ -56,7 +56,7 @@ Usage:
               (A branch with no commits of its own is deleted; nothing is lost.)
         -D    Also delete the branch — force: deletes even with unmerged commits.
 
-  gwclean                           Remove worktrees whose branch is merged into origin/main or gone.
+  gwclean                           Remove worktrees whose branch is merged into the default branch or gone.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
@@ -247,8 +247,8 @@ function gwr() {
     fi
 }
 
-# Remove worktrees whose branch is merged into origin/main or gone from origin,
-# then delete those branches. Dirty worktrees and main/master are skipped.
+# Remove worktrees whose branch is merged into the default branch or gone from
+# origin, then delete those branches. Dirty and default-branch worktrees are kept.
 # gwclean
 function gwclean() {
     _gw_repo_dir || return 1
@@ -257,11 +257,14 @@ function gwclean() {
     local -a wts=(${REPO_DIR}/*(/N))
     (( ${#wts} )) || { echo "gwclean: no worktrees under $REPO_DIR"; return 0; }
 
+    local default_br
+    default_br="${$(_gw_default_branch)#origin/}"
+
     local d br x
     local -a removed skipped
     for d in $wts; do
         br="$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-        [[ -z "$br" || "$br" == HEAD || "$br" == (main|master) ]] && continue
+        [[ -z "$br" || "$br" == HEAD || "$br" == (main|master) || "$br" == "$default_br" ]] && continue
         _gw_branch_stale "$br" || continue
         if ! _gw_worktree_is_clean "$d"; then
             skipped+=("${d:t} ($br) — uncommitted changes")
@@ -346,9 +349,25 @@ function _gw_worktree_is_clean() {
     return 0
 }
 
-# True if branch <name> is merged into origin/main or its upstream is gone.
+# Print the repo's default branch as a remote ref, e.g. "origin/main".
+# Prefers the remote's advertised HEAD (set at clone time); else guesses.
+function _gw_default_branch() {
+    local ref b
+    ref="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" \
+        && { print -r -- "$ref"; return 0; }
+    for b in main master trunk develop; do
+        if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+            print -r -- "origin/$b"; return 0
+        fi
+    done
+    return 1
+}
+
+# True if branch <name> is merged into the default branch or its upstream is gone.
 function _gw_branch_stale() {
-    git merge-base --is-ancestor "refs/heads/$1" origin/main 2>/dev/null && return 0
+    local base
+    base="$(_gw_default_branch)"
+    [[ -n "$base" ]] && git merge-base --is-ancestor "refs/heads/$1" "$base" 2>/dev/null && return 0
     [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
 }
 
