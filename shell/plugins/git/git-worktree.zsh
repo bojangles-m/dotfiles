@@ -167,15 +167,17 @@ function gwcd() {
 }
 
 # Remove the worktree gwa created for <branch>.
-# gwr [-D] <branch> [git-worktree-remove flags, e.g. --force]
-#   -D : also delete the branch after removing the worktree
+# gwr [-d | -D] <branch> [git-worktree-remove flags, e.g. --force]
+#   -d : also delete the branch (safe: refuses if it has unmerged commits)
+#   -D : also delete the branch (force: even if unmerged)
 function gwr() {
-    local delete_branch=0
+    local delete_flag=""             # "" | -d (safe) | -D (force), mirrors git branch
     local -a pos passthru
     local arg
     for arg in "$@"; do
         case "$arg" in
-            -D) delete_branch=1 ;;
+            -d) delete_flag="-d" ;;
+            -D) delete_flag="-D" ;;
             -*) passthru+=("$arg") ;;   # e.g. --force -> git worktree remove
             *)  pos+=("$arg") ;;
         esac
@@ -183,16 +185,16 @@ function gwr() {
 
     local branch="${pos[1]}"
     if [[ -z "$branch" ]]; then
-        echo "usage: gwr [-D] <branch> [--force]" >&2
+        echo "usage: gwr [-d|-D] <branch> [--force]" >&2
         return 1
     fi
     _gw_repo_dir || return 1
     local wt="$REPO_DIR/${branch//\//-}"
 
-    # Capture the branch checked out in the worktree before removing it, so -D
-    # deletes the right ref even when <branch> was given in flattened form.
+    # Capture the branch checked out in the worktree before removing it, so the
+    # delete targets the right ref even when <branch> was given in flattened form.
     local wt_branch=""
-    (( delete_branch )) && wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    [[ -n "$delete_flag" ]] && wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 
     # Explicit flags -> pass straight through. Otherwise: clean (bar seeded files)
     # removes silently with --force; real uncommitted work makes git refuse & warn.
@@ -204,8 +206,8 @@ function gwr() {
         git worktree remove "$wt" || return 1
     fi
 
-    if (( delete_branch )) && [[ -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
-        git branch -D "$wt_branch"
+    if [[ -n "$delete_flag" && -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
+        git branch "$delete_flag" "$wt_branch"
     fi
 }
 
@@ -262,7 +264,13 @@ Usage:
 
   gwo [<branch>]                    Open a worktree in VS Code. Opens the most recently if <branch> is omitted.
   gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
-  gwr [-D] <branch> [--force]       Remove a worktree. -D also deletes its branch.
+
+  gwr [-d | -D] <branch> [--force]
+      Remove a worktree. The branch is KEPT unless you pass -d/-D.
+        -d    Also delete the branch — safe: git refuses if it has unmerged commits.
+              (A branch with no commits of its own is deleted; nothing is lost.)
+        -D    Also delete the branch — force: deletes even with unmerged commits.
+
   gwclean                           Remove worktrees whose branch is merged into origin/main or gone.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
