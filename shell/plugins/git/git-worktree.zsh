@@ -21,7 +21,6 @@ GWT_VERSION="1.0.2"
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
-
 # Help for the gw worktree commands.
 # gwt [-v | -h] (no args: help + version)
 #   -v : version    
@@ -33,7 +32,6 @@ function gwt() {
         *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
     esac
 }
-
 
 function _gw_help() {
     cat <<EOF
@@ -112,6 +110,18 @@ function _gw_branch_stale() {
     [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
 }
 
+# Print the path of the worktree that has <branch> checked out, if any.
+function _gw_worktree_for_branch() {
+    local target="refs/heads/$1" wtpath="" line
+    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+        case "$line" in
+            "worktree "*)      wtpath="${line#worktree }" ;;
+            "branch $target")  print -r -- "$wtpath"; return 0 ;;
+        esac
+    done
+    return 1
+}
+
 # Worktree at $WORKTREE_DIR/<repo>/<branch>
 # gwa [-c | -o] <branch> [<start-point>]
 #   -c : copy a "vscode -n && vscode -a <path>" command to the clipboard (default)
@@ -139,13 +149,28 @@ function gwa() {
     local src wt
     src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
     wt="$REPO_DIR/${branch//\//-}"
+
+    # If this branch already has a worktree, reuse it instead of failing.
+    local existing
+    existing="$(_gw_worktree_for_branch "$branch")"
+    if [[ -n "$existing" ]]; then
+        GW_LAST="$existing"
+        case "$action" in
+            open) echo "gwa: '$branch' already has a worktree at $existing — opening it"
+                  _gw_open "$existing" ;;
+            copy) echo "gwa: '$branch' already has a worktree at $existing"
+                  _gw_copy_vscode "$existing" ;;
+        esac
+        return 0
+    fi
+
     if git show-ref --verify --quiet "refs/heads/$branch"; then
-        git worktree add "$wt" "$branch" || return 1
+        git worktree add "$wt" "$branch" >/dev/null || return 1
     elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
         print -r -- $'\e[38;5;208m'"gwa: The '$branch' already exists on origin — creating from origin/$branch, not HEAD"$'\e[0m'
-        git worktree add --track -b "$branch" "$wt" "origin/$branch" || return 1
+        git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
     else
-        git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" || return 1
+        git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" >/dev/null || return 1
     fi
 
     # Worktrees omit gitignored files; seed the ones this repo needs
