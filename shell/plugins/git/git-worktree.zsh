@@ -223,3 +223,31 @@ function gwt() {
         *)  _gw_help; echo; echo "version: $GWT_VERSION" ;;
     esac
 }
+
+# ---------------------------------------------------------------------------
+# Tab completion
+# ---------------------------------------------------------------------------
+
+# complete short branch names — local + remote (origin/ stripped), deduped.
+# Short names are what gwa expects; 'origin/x' would make a bogus local branch.
+function _gw_complete_branches() {
+    local -aU names   # -U dedupes local vs remote of the same name
+    names=(
+        ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)"}
+        ${(f)"$(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes 2>/dev/null)"}
+    )
+    compadd -- ${names:#HEAD}
+}
+
+# gwo / gwcd / gwr: complete names of existing worktrees under $REPO_DIR.
+function _gw_complete_worktrees() {
+    _gw_repo_dir 2>/dev/null || return
+    local -a wts
+    wts=(${REPO_DIR}/*(/N))   # (/) dirs only, N nullglob
+    compadd -- ${wts:t}       # :t -> basenames
+}
+
+(( $+functions[compdef] )) && {
+    compdef _gw_complete_branches gwa
+    compdef _gw_complete_worktrees gwo gwcd gwr
+}
