@@ -69,59 +69,6 @@ Configuration:
 EOF
 }
 
-# Sets the global REPO_DIR to $WORKTREE_DIR/<repo-name> for the current repo.
-function _gw_repo_dir() {
-    local common
-    common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
-        echo "gw: not inside a git repository" >&2
-        return 1
-    }
-    common="${common:A}"                     # -> /abs/path/repo/.git
-    REPO_DIR="$WORKTREE_DIR/${common:h:t}"   # -> $WORKTREE_DIR/repo
-}
-
-# Copy a ready-to-run "open in VS Code" command to the clipboard.
-function _gw_copy_vscode() {
-    command -v pbcopy >/dev/null || return 0
-    printf 'vscode -n && vscode -a %s' "$1" | pbcopy
-}
-
-# Open the path in a new VS Code window with folder added to the workspace.
-function _gw_open() {
-    command -v code >/dev/null || { echo "gw: 'code' not found on PATH" >&2; return 1; }
-    code -n && code -a "$1"
-}
-
-# True if the worktree at <path> has no real changes.
-function _gw_worktree_is_clean() {
-    local line p
-    for line in "${(@f)$(git -C "$1" status --porcelain -uall 2>/dev/null)}"; do
-        [[ -z "$line" ]] && continue
-        p="${line[4,-1]}"                          # strip the "XY " status prefix
-        (( ${GWT_COPY_FILES[(Ie)$p]} )) && continue
-        return 1                                   # a real change -> not clean
-    done
-    return 0
-}
-
-# True if branch <name> is merged into origin/main or its upstream is gone.
-function _gw_branch_stale() {
-    git merge-base --is-ancestor "refs/heads/$1" origin/main 2>/dev/null && return 0
-    [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
-}
-
-# Print the path of the worktree that has <branch> checked out, if any.
-function _gw_worktree_for_branch() {
-    local target="refs/heads/$1" wtpath="" line
-    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
-        case "$line" in
-            "worktree "*)      wtpath="${line#worktree }" ;;
-            "branch $target")  print -r -- "$wtpath"; return 0 ;;
-        esac
-    done
-    return 1
-}
-
 # Worktree at $WORKTREE_DIR/<repo>/<branch>
 # gwa [-c | -o] <branch> [<start-point>]
 #   -c : copy a "vscode -n && vscode -a <path>" command to the clipboard (default)
@@ -197,6 +144,7 @@ function gwa() {
         open) _gw_open "$wt" ;;
     esac
 }
+
 
 # Open a worktree in a new VS Code window.
 # With no <branch>, opens the worktree gwa created most recently (this shell).
@@ -333,7 +281,58 @@ function gwclean() {
     fi
 }
 
+# Sets the global REPO_DIR to $WORKTREE_DIR/<repo-name> for the current repo.
+function _gw_repo_dir() {
+    local common
+    common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
+        echo "gw: not inside a git repository" >&2
+        return 1
+    }
+    common="${common:A}"                     # -> /abs/path/repo/.git
+    REPO_DIR="$WORKTREE_DIR/${common:h:t}"   # -> $WORKTREE_DIR/repo
+}
 
+# Print the path of the worktree that has <branch> checked out, if any.
+function _gw_worktree_for_branch() {
+    local target="refs/heads/$1" wtpath="" line
+    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+        case "$line" in
+            "worktree "*)      wtpath="${line#worktree }" ;;
+            "branch $target")  print -r -- "$wtpath"; return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# Copy a ready-to-run "open in VS Code" command to the clipboard.
+function _gw_copy_vscode() {
+    command -v pbcopy >/dev/null || return 0
+    printf 'vscode -n && vscode -a %s' "$1" | pbcopy
+}
+
+# Open the path in a new VS Code window with folder added to the workspace.
+function _gw_open() {
+    command -v code >/dev/null || { echo "gw: 'code' not found on PATH" >&2; return 1; }
+    code -n && code -a "$1"
+}
+
+# True if the worktree at <path> has no real changes.
+function _gw_worktree_is_clean() {
+    local line p
+    for line in "${(@f)$(git -C "$1" status --porcelain -uall 2>/dev/null)}"; do
+        [[ -z "$line" ]] && continue
+        p="${line[4,-1]}"                          # strip the "XY " status prefix
+        (( ${GWT_COPY_FILES[(Ie)$p]} )) && continue
+        return 1                                   # a real change -> not clean
+    done
+    return 0
+}
+
+# True if branch <name> is merged into origin/main or its upstream is gone.
+function _gw_branch_stale() {
+    git merge-base --is-ancestor "refs/heads/$1" origin/main 2>/dev/null && return 0
+    [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
+}
 
 # ---------------------------------------------------------------------------
 # Tab completion
