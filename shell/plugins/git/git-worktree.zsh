@@ -1,27 +1,41 @@
 GWT_VERSION="1.0.3"
 
+# ---------------------------------------------------------------------------
 # All worktrees live under $GWT_WORKTREE_DIR/<repo-name>/<branch>.
-# Override the base folder by exporting GWT_WORKTREE_DIR before the shell loads.
+# Shell control: export GWT_WORKTREE_DIR='$HOM/<repo-name>/<branch>'
+# ---------------------------------------------------------------------------
 : ${GWT_WORKTREE_DIR:="$HOME/dev/workspace"}
 
+# ---------------------------------------------------------------------------
 # Command run inside each new worktree after creation, e.g. 'pnpm install'.
 # Default Empty = do nothing.
-# Control it from your shell: export GWT_POST_INIT_CMD='pnpm install'
+# Shell control: export GWT_POST_INIT_CMD='pnpm install'
+# ---------------------------------------------------------------------------
 : ${GWT_POST_INIT_CMD:=""}
 
+# ---------------------------------------------------------------------------
 # Command used to open a worktree ({} = its path; if absent, the path is appended)
 # Default is VS Code.
-# Control it from your shell: export GWT_OPEN_CMD='cursor {}'
+# Shell control: export GWT_OPEN_CMD='cursor {}'
+# ---------------------------------------------------------------------------
 : ${GWT_OPEN_CMD:='code -n && code -a {}'}
 
+# ---------------------------------------------------------------------------
 # Gitignored files copied into each new worktree (only the ones that exist).
-# Override files by exporting GWT_COPY_FILES before the shell loads.
+# Shell control: export GWT_COPY_FILES=(<files>)
+# ---------------------------------------------------------------------------
 (( ${+GWT_COPY_FILES} )) || GWT_COPY_FILES=(
     .env                                    # FE
     application/config/config-private.php   # BE
     .vscode/launch.json                     # optional
     .vscode/settings.json                   # optional
 )
+
+# ---------------------------------------------------------------------------
+# Interactive picker by fzf (used only if installed).
+# Shell control: export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
+# ---------------------------------------------------------------------------
+: ${GWT_PICKER_OPTIONS:=""}
 
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
@@ -41,17 +55,18 @@ gwt: v$GWT_VERSION
 Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 
 Usage:
-  gwa [-c | -o] <branch> [<start-point>]
-      Create a new worktree.
+  gwa [-c | -o] [<branch>] [<start-point>]
+      Create a new worktree. No <branch>: fzf picker of branches without a worktree.
           -c    Copy the "open" command to the clipboard (default)
           -o    Open the worktree in your editor
                 (both use \$GWT_OPEN_CMD — VS Code by default)
 
-  gwo [<branch>]                    Open a worktree in your editor. Opens the most recently if <branch> is omitted.
-  gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
+  gwo [<branch>]                    Open a worktree in your editor. No <branch>: fzf picker (else the most recent).
+  gwcd [<branch>]                   Change into a worktree. No <branch>: fzf picker (else the most recent).
 
-  gwr [-d | -D] <branch> [--force]
+  gwr [-d | -D] [<branch>] [--force]
       Remove a worktree. The branch is KEPT unless you pass -d/-D.
+      No <branch>: fzf multi-picker (mark several with Tab, remove all).
           -d    Also delete the branch — safe: git refuses if it has unmerged commits.
                 (A branch with no commits of its own is deleted; nothing is lost.)
           -D    Also delete the branch — force: deletes even with unmerged commits.
@@ -83,9 +98,10 @@ EOF
 }
 
 # Worktree at $GWT_WORKTREE_DIR/<repo>/<branch>
-# gwa [-c | -o] <branch> [<start-point>]
+# gwa [-c | -o] [<branch>] [<start-point>]
 #   -c : copy the open-command ($GWT_OPEN_CMD) to the clipboard (default)
 #   -o : open the new worktree via $GWT_OPEN_CMD
+# With no <branch>: fzf picker of branches that don't have a worktree yet.
 function gwa() {
     local -a flags pos
     local action="copy"                      # default; add more flags below
@@ -101,8 +117,14 @@ function gwa() {
 
     local branch="${pos[1]}" startpoint="${pos[2]}"
     if [[ -z "$branch" ]]; then
-        _gwt_error "usage: [-c|-o] <branch> [<start-point>]"
-        return 1
+        # No branch given: pick an existing branch that has no worktree yet.
+        if _gwt_is_picker_available; then
+            branch="$(_gwt_pick_branch)" || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
+            [[ -z "$branch" ]] && return 0
+        else
+            _gwt_error "usage: [-c|-o] <branch> [<start-point>]"
+            return 1
+        fi
     fi
 
     local src wt
@@ -158,12 +180,15 @@ function gwa() {
 
 
 # Open a worktree via $GWT_OPEN_CMD (VS Code by default).
-# With no <branch>, opens the worktree gwa created most recently (this shell).
+# With no <branch>: fzf picker if available, else the worktree gwa created most
+# recently in this shell ($GWT_LAST).
 # gwo [<branch>]
 function gwo() {
     local wt
     if [[ -n "$1" ]]; then
         _gwt_wt_path "$1" || return 1
+    elif _gwt_is_picker_available; then
+        wt="$(_gwt_pick -p 'open')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
         wt="$GWT_LAST"
     fi
@@ -178,12 +203,15 @@ function gwo() {
     _gwt_open "$wt"
 }
 
-# cd into a worktree. Without <branch>, cd into recently created worktree.
+# cd into a worktree. Without <branch>: fzf picker if available, else the most
+# recently created worktree ($GWT_LAST).
 # gwcd [<branch>]
 function gwcd() {
     local wt
     if [[ -n "$1" ]]; then
         _gwt_wt_path "$1" || return 1
+    elif _gwt_is_picker_available; then
+        wt="$(_gwt_pick -p 'cd')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
         wt="$GWT_LAST"
     fi
@@ -199,7 +227,8 @@ function gwcd() {
 }
 
 # Remove the worktree gwa created for <branch>.
-# gwr [-d | -D] <branch> [git-worktree-remove flags, e.g. --force]
+# With no <branch>: fzf multi-picker if available (mark several, remove all).
+# gwr [-d | -D] [<branch>] [git-worktree-remove flags, e.g. --force]
 #   -d : also delete the branch (safe: refuses if it has unmerged commits)
 #   -D : also delete the branch (force: even if unmerged)
 function gwr() {
@@ -214,39 +243,47 @@ function gwr() {
         esac
     done
 
-    local branch="${pos[1]}"
-    if [[ -z "$branch" ]]; then
+    # Target worktree path(s): an explicit <branch>, else the interactive picker.
+    local -a targets
+    local wt wt_branch unique rc=0
+    if [[ -n "${pos[1]}" ]]; then
+        _gwt_wt_path "${pos[1]}" || return 1     # sets wt (and GWT_REPO_DIR)
+        targets=("$wt")
+    elif _gwt_is_picker_available; then
+        targets=("${(@f)$(_gwt_pick -m --skip-current -p 'remove')}") || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
+        (( ${#targets} )) || return 0            # nothing selected -> no-op
+    else
         _gwt_error "usage: [-d|-D] <branch> [--force]"
         return 1
     fi
-    local wt
-    _gwt_wt_path "$branch" || return 1     # sets wt (and GWT_REPO_DIR)
 
-    # Capture the branch checked out in the worktree before removing it, so the
-    # delete targets the right ref even when <branch> was given in flattened form.
-    local wt_branch=""
-    [[ -n "$delete_flag" ]] && wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    for wt in $targets; do
+        # Capture the branch checked out before removing it, so a -d/-D delete
+        # targets the right ref even when <branch> was given in flattened form.
+        wt_branch=""
+        [[ -n "$delete_flag" ]] && wt_branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 
-    # Explicit flags -> pass straight through. Otherwise: clean (bar seeded files)
-    # removes silently with --force; real uncommitted work makes git refuse & warn.
-    if (( ${#passthru} )); then
-        git worktree remove "$wt" "${passthru[@]}" || return 1
-    elif _gwt_worktree_is_clean "$wt"; then
-        git worktree remove --force "$wt" || return 1
-    else
-        git worktree remove "$wt" || return 1
-    fi
-
-    if [[ -n "$delete_flag" && -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
-        # Count commits unique to the branch before deleting (ref still exists).
-        local unique
-        unique="$(git rev-list --count "HEAD..$wt_branch" 2>/dev/null)"
-        if git branch "$delete_flag" "$wt_branch"; then
-            # Make the "why did it delete?" self-evident: an empty branch is safe.
-            [[ "$unique" == 0 ]] && \
-                _gwt_info "branch '$wt_branch' had no unique commits — nothing was lost"
+        # Explicit flags -> pass straight through. Otherwise: clean (bar seeded files)
+        # removes silently with --force; real uncommitted work makes git refuse & warn.
+        if (( ${#passthru} )); then
+            git worktree remove "$wt" "${passthru[@]}" || { rc=1; continue; }
+        elif _gwt_worktree_is_clean "$wt"; then
+            git worktree remove --force "$wt" || { rc=1; continue; }
+        else
+            git worktree remove "$wt" || { rc=1; continue; }
         fi
-    fi
+
+        if [[ -n "$delete_flag" && -n "$wt_branch" && "$wt_branch" != HEAD ]]; then
+            # Count commits unique to the branch before deleting (ref still exists).
+            unique="$(git rev-list --count "HEAD..$wt_branch" 2>/dev/null)"
+            if git branch "$delete_flag" "$wt_branch"; then
+                # Make the "why did it delete?" self-evident: an empty branch is safe.
+                [[ "$unique" == 0 ]] && \
+                    _gwt_info "branch '$wt_branch' had no unique commits — nothing was lost"
+            fi
+        fi
+    done
+    return $rc
 }
 
 # Remove "stale" worktrees: branch has no commits of its own beyond the default
@@ -681,4 +718,159 @@ function _gwt_cmd() {
         print -r -- "$f"; return
     done
     print -r -- gw
+}
+
+# ---------------------------------------------------------------------------
+# Interactive picker powered by fzf (used only if installed).
+# Control it from your shell: export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
+# ---------------------------------------------------------------------------
+: ${GWT_PICKER_OPTIONS:=""}
+
+
+
+# Interactively pick worktree(s) of the current repo.
+# Returns non-zero if (ESC/^C) or nothing is selected
+# _gwt_pick [-m] [--skip-current] [-p <prompt>]
+#   -m              multi-select (prints one path per line)
+#   --skip-current  omit the worktree you're standing in (used by gwr)
+#   -p <prompt>     fzf prompt label
+function _gwt_pick() {
+    local multi="" skip_current="" prompt="pick"
+    while (( $# )); do
+        case "$1" in
+            -m)             multi=1 ;;
+            --skip-current) skip_current=1 ;;
+            -p)             prompt="$2"; shift ;;
+        esac
+        shift
+    done
+
+    _gwt_repo_dir || return 1
+
+    # (path, branch) for every worktree of this repo — same parse as _gwt_gather_repo.
+    local -a wt_paths wt_branches
+    local line cpath="" cbranch=""
+    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+        case "$line" in
+            "worktree "*)
+                [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
+                cpath="${line#worktree }"; cbranch="(detached)" ;;
+            "branch refs/heads/"*) cbranch="${line#branch refs/heads/}" ;;
+        esac
+    done
+    [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
+
+    local here=""
+    [[ -n "$skip_current" ]] && here="$(git rev-parse --show-toplevel 2>/dev/null)"
+
+    # one bulk query for commit times -> newest-first ordering (matches gws)
+    local -A m_ts
+    local rec
+    for rec in "${(@f)$(git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs/heads 2>/dev/null)}"; do
+        m_ts[${rec%% *}]="${rec##* }"
+    done
+
+    # build "ts \t branch \t path" rows, dropping the current worktree if asked
+    local -a rows
+    local i p br ts
+    for (( i = 1; i <= ${#wt_paths}; i++ )); do
+        p="${wt_paths[$i]}"; br="${wt_branches[$i]}"
+        [[ -n "$here" && "$p" == "$here" ]] && continue
+        ts="${m_ts[$br]:-0}"
+        rows+=("${ts}"$'\t'"${br}"$'\t'"${p}")
+    done
+    (( ${#rows} )) || { _gwt_warn "no worktrees to pick"; return 1; }
+
+    rows=("${(@On)rows}")                 # newest commit first
+    local -a menu
+    for line in $rows; do menu+=("${line#*$'\t'}"); done   # drop ts -> "branch \t path"
+
+    local header='enter: select   ctrl-/: toggle preview'
+    [[ -n "$multi" ]] && header='enter: confirm   tab: mark   ctrl-/: toggle preview'
+
+    # fzf shows branch (field 1); path (field 2) rides along for preview + return.
+    local sel
+    sel="$(print -rl -- $menu | fzf --ansi \
+        --delimiter=$'\t' --with-nth=1 \
+        --height=40% --reverse --border \
+        --prompt="$prompt> " \
+        --header="$header" \
+        --preview 'git -C {2} log --oneline --decorate -20 2>/dev/null; echo; echo "── status ──"; git -C {2} status -s 2>/dev/null' \
+        --preview-window='right,50%,border-left' \
+        --bind 'ctrl-/:toggle-preview' \
+        ${=GWT_PICKER_OPTIONS} \
+        ${multi:+--multi})"
+    local rc=$?
+    (( rc )) && return $rc                 # propagate fzf's code (130 = ESC/^C abort)
+    [[ -n "$sel" ]] || return 1
+
+    local l
+    for l in "${(@f)sel}"; do print -r -- "${l#*$'\t'}"; done   # emit path(s)
+}
+
+function _gwt_is_picker_available() { [[ -t 1 ]] && (( $+commands[fzf] )); }
+
+# Interactively pick a branch that does NOT yet have a worktree; print its short
+# name to stdout. Used by a bare `gwa` to create a worktree for an existing branch.
+# Lists local heads + origin/* (deduped), newest-commit-first, with the relative
+# date inline and author + recent commits in the preview. Returns non-zero on abort
+# or when every branch already has a worktree.
+function _gwt_pick_branch() {
+    _gwt_repo_dir || return 1
+
+    # Branches already checked out in some worktree -> exclude them.
+    local -A has_wt
+    local line
+    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+        [[ "$line" == "branch refs/heads/"* ]] && has_wt[${line#branch refs/heads/}]=1
+    done
+
+    local SEP=$'\x1f'
+    local -A seen
+    local -a rows                          # "ts \t display \t branch \t logref"
+    local rec name ts rel disp
+
+    # local heads (logref = the branch itself)
+    for rec in "${(@f)$(git for-each-ref --format="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)" refs/heads 2>/dev/null)}"; do
+        name="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
+        ts="${rec%%${SEP}*}"; rel="${rec#*${SEP}}"
+        [[ -z "$name" || -n "${has_wt[$name]}" || -n "${seen[$name]}" ]] && continue
+        seen[$name]=1
+        disp="${name[1,45]}"; disp="${(r:45:)disp}  ${rel}"
+        rows+=("${ts}"$'\t'"${disp}"$'\t'"${name}"$'\t'"${name}")
+    done
+
+    # origin branches without a local counterpart (logref = origin/<name>)
+    for rec in "${(@f)$(git for-each-ref --format="%(refname:lstrip=3)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)" refs/remotes/origin 2>/dev/null)}"; do
+        name="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
+        ts="${rec%%${SEP}*}"; rel="${rec#*${SEP}}"
+        [[ -z "$name" || "$name" == HEAD || -n "${has_wt[$name]}" || -n "${seen[$name]}" ]] && continue
+        seen[$name]=1
+        disp="${name[1,45]}"; disp="${(r:45:)disp}  ${rel}"
+        rows+=("${ts}"$'\t'"${disp}"$'\t'"${name}"$'\t'"origin/${name}")
+    done
+
+    (( ${#rows} )) || { _gwt_warn "no branches without a worktree to pick"; return 1; }
+
+    rows=("${(@On)rows}")                  # newest commit first
+    local -a menu
+    for line in $rows; do menu+=("${line#*$'\t'}"); done   # drop ts -> "display \t branch \t logref"
+
+    # fzf shows the padded "branch  date" (field 1); branch (2) + logref (3) ride along.
+    local sel
+    sel="$(print -rl -- $menu | fzf --ansi \
+        --delimiter=$'\t' --with-nth=1 \
+        --height=40% --reverse --border \
+        --prompt='branch> ' \
+        --header='enter: create worktree   ctrl-/: toggle preview' \
+        --preview 'git log -1 --format="%an · %ar" {3} 2>/dev/null; echo; git log --oneline --decorate -20 {3} 2>/dev/null' \
+        --preview-window='right,55%,border-left' \
+        --bind 'ctrl-/:toggle-preview' \
+        ${=GWT_PICKER_OPTIONS})"
+    local rc=$?
+    (( rc )) && return $rc                  # propagate fzf's code (130 = ESC/^C abort)
+    [[ -n "$sel" ]] || return 1
+
+    local rest="${sel#*$'\t'}"             # drop display -> "branch \t logref"
+    print -r -- "${rest%%$'\t'*}"          # emit the short branch name
 }
