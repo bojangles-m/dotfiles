@@ -26,32 +26,6 @@ GWT_VERSION="1.0.2"
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
-# ---------------------------------------------------------------------------
-# Logging — info to stdout; note/warn/error to stderr
-# ---------------------------------------------------------------------------
-
-# The public gw command that triggered the message: first non-internal frame.
-function _gw_cmd() {
-    local f
-    for f in $funcstack; do
-        [[ $f == _gw_* ]] && continue
-        print -r -- "$f"; return
-    done
-    print -r -- gw
-}
-
-# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
-function _gw_emit() {
-    local msg="$(_gw_cmd): $2"
-    [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
-    print -r -- "$msg" >&2
-}
-
-function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
-function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
-function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
-function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
-
 # Help for the gw worktree commands.
 function gwt() {
     case "$1" in
@@ -69,18 +43,18 @@ Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 Usage:
   gwa [-c | -o] <branch> [<start-point>]
       Create a new worktree.
-        -c    Copy the "open" command to the clipboard (default)
-        -o    Open the worktree in your editor
-              (both use \$GWT_OPEN_CMD — VS Code by default)
+          -c    Copy the "open" command to the clipboard (default)
+          -o    Open the worktree in your editor
+                (both use \$GWT_OPEN_CMD — VS Code by default)
 
   gwo [<branch>]                    Open a worktree in your editor. Opens the most recently if <branch> is omitted.
   gwcd [<branch>]                   Change into a worktree. Uses the most recently if <branch> is omitted.
 
   gwr [-d | -D] <branch> [--force]
       Remove a worktree. The branch is KEPT unless you pass -d/-D.
-        -d    Also delete the branch — safe: git refuses if it has unmerged commits.
-              (A branch with no commits of its own is deleted; nothing is lost.)
-        -D    Also delete the branch — force: deletes even with unmerged commits.
+          -d    Also delete the branch — safe: git refuses if it has unmerged commits.
+                (A branch with no commits of its own is deleted; nothing is lost.)
+          -D    Also delete the branch — force: deletes even with unmerged commits.
 
   gwclean                           Remove worktrees whose branch is merged into the default branch or gone.
   gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
@@ -90,15 +64,15 @@ Usage:
 
 Configuration:
   Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
-        GWT_WORKTREE_DIR        base folder that holds all worktrees
-                            e.g.  export GWT_WORKTREE_DIR=~/dev/wt
-        GWT_COPY_FILES      gitignored files copied into each new worktree (if present)
-                            e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
-        GWT_POST_INIT_CMD     command run inside the new worktree after it is created
-                            e.g.  GWT_POST_INIT_CMD='pnpm install' gwa my-branch
-        GWT_OPEN_CMD        command used to open a worktree ({} = its path)
-                            default: code -n && code -a {}
-                            e.g.  export GWT_OPEN_CMD='cursor {}'
+        GWT_WORKTREE_DIR            base folder that holds all worktrees
+                                    e.g.  export GWT_WORKTREE_DIR=~/dev/wt
+        GWT_COPY_FILES              gitignored files copied into each new worktree (if present)
+                                    e.g.  GWT_COPY_FILES=(.env .npmrc)   # in this file
+        GWT_POST_INIT_CMD           command run inside the new worktree after it is created
+                                    e.g.  GWT_POST_INIT_CMD='pnpm install' gwa my-branch
+        GWT_OPEN_CMD                command used to open a worktree ({} = its path)
+                                    default: code -n && code -a {}
+                                    e.g.  export GWT_OPEN_CMD='cursor {}'
 EOF
 }
 
@@ -552,3 +526,29 @@ function gws() {
     _gw_info ""
     _gw_info "${C_DIM}${summary}${C_RESET}"
 }
+
+# ---------------------------------------------------------------------------
+# Logging — info to stdout; note/warn/error to stderr
+# ---------------------------------------------------------------------------
+
+# The public gw command that triggered the message: first non-internal frame.
+function _gw_cmd() {
+    local f
+    for f in $funcstack; do
+        [[ $f == _gw_* ]] && continue
+        print -r -- "$f"; return
+    done
+    print -r -- gw
+}
+
+# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
+function _gw_emit() {
+    local msg="$(_gw_cmd): $2"
+    [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
+    print -r -- "$msg" >&2
+}
+
+function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
+function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
+function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
+function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
