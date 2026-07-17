@@ -83,7 +83,7 @@ Usage:
         -D    Also delete the branch — force: deletes even with unmerged commits.
 
   gwclean                           Remove worktrees whose branch is merged into the default branch or gone.
-  gws                               Status dashboard: branch, dirty, ahead/behind, last commit.
+  gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
@@ -534,7 +534,7 @@ function gws() {
         [[ "$state" == dirty ]] && fs="${C_DIRTY}${fs}${C_RESET}"
         [[ "$sync"  == gone  ]] && fy="${C_GONE}${fy}${C_RESET}"
 
-        row="$mark ${fb} ${fs} ${fy} ${fsub} ${when}"
+        row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
         [[ -n "$stale" ]] && row+="  ${C_DIM}⚑ stale${C_RESET}"
         rows+=("${ts}"$'\t'"$row")
     done
@@ -543,7 +543,7 @@ function gws() {
     rows=("${(@On)rows}")
 
     local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT"
-    _gw_info "${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4} WHEN${C_RESET}"
+    _gw_info "${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
     local r
     for r in $rows; do _gw_info "${r#*$'\t'}"; done
 
