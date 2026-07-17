@@ -62,8 +62,8 @@ Usage:
       Branches with unpushed/unmerged commits are KEPT — use gwr for those.
           -n    Dry run: preview what would be removed; removes nothing.
 
-  gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
-                                    ⚑ stale marks branches gwclean would remove (see gwclean).
+  gws [-a | --all]                  Worktree status dashboard: branch, dirty, ahead/behind, last commit.
+                                    ⚑ stale = a gwclean candidate. -a shows every repo under GWT_WORKTREE_DIR.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
@@ -389,12 +389,14 @@ function _gw_worktree_is_clean() {
 
 # Print the repo's default branch as a remote ref, e.g. "origin/main".
 # Prefers the remote's advertised HEAD (set at clone time); else guesses.
+# $1 = optional repo dir to run against (default: cwd).
 function _gw_default_branch() {
+    local -a C; [[ -n "$1" ]] && C=(-C "$1")
     local ref b
-    ref="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" \
+    ref="$(git $C symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" \
         && { print -r -- "$ref"; return 0; }
     for b in main master trunk develop; do
-        if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+        if git $C show-ref --verify --quiet "refs/remotes/origin/$b"; then
             print -r -- "origin/$b"; return 0
         fi
     done
@@ -403,11 +405,12 @@ function _gw_default_branch() {
 
 # "Stale" = branch has no commits of its own beyond the default branch (merged or
 # never diverged), or its upstream is gone. True for such branches — safe to remove.
+# $1 = branch, $2 = optional repo dir to run against (default: cwd).
 function _gw_branch_stale() {
-    local base
-    base="$(_gw_default_branch)"
-    [[ -n "$base" ]] && git merge-base --is-ancestor "refs/heads/$1" "$base" 2>/dev/null && return 0
-    [[ "$(git for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
+    local -a C; [[ -n "$2" ]] && C=(-C "$2")
+    local base; base="$(_gw_default_branch "$2")"
+    [[ -n "$base" ]] && git $C merge-base --is-ancestor "refs/heads/$1" "$base" 2>/dev/null && return 0
+    [[ "$(git $C for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -440,27 +443,39 @@ function _gw_complete_worktrees() {
 
 # ---------------------------------------------------------------------------
 # Worktree status dashboard.
-# Columns: 
-#   marker (▶ current / ⌂ main), 
-#   branch name, 
-#   state: dirty/clean, 
-#   sync: ahead/behind,
-#   last-commit: subject + age. 
-#   last commit time: Rows sorted newest-commit-first;
-#   worktree state: ⚑ stale marks, 
+#
+# Columns:
+#   marker       ▶ current worktree · ⌂ main worktree
+#   branch       branch checked out in the worktree
+#   state        dirty / clean  (any uncommitted changes?)
+#   sync         vs upstream: ↑ahead ↓behind · synced · gone · local
+#   last commit  subject + how long ago
+#
+# Rows are sorted newest-commit-first.
+# ⚑ stale marks branches gwclean would remove (merged, never diverged, or gone).
+#
+# Usage: gws [-a | --all]
+#   -a   show every repo under $GWT_WORKTREE_DIR (works from any directory)
 # ---------------------------------------------------------------------------
-function gws() {
-    _gw_repo_dir || return 1
 
-    local here base default_br
-    here="$(git rev-parse --show-toplevel 2>/dev/null)"
-    base="$(_gw_default_branch)"
+# Print one repository's worktrees as dashboard rows (helper for gws).
+#
+#   $1  heading shown above the rows, e.g. the repo name ("" = no heading)
+#   $2  any directory inside that repo — all git commands are run there
+#
+# Called only from gws: it borrows the colors ($C_*) and the current-worktree
+# marker ($here) that gws set up, and adds to gws's running counts as it goes
+# ($n_total, $n_dirty, $n_stale, $n_removable).
+function _gw_gather_repo() {
+    local label="$1" ctx="$2"
+    local base default_br
+    base="$(_gw_default_branch "$ctx")"
     default_br="${base#origin/}"
 
-    # Collect (path, branch) for every worktree; the first block is the main one.
+    # Collect (path, branch) for every worktree of this repo; main is listed first.
     local -a wt_paths wt_branches
     local line cpath="" cbranch=""
-    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+    for line in "${(@f)$(git -C "$ctx" worktree list --porcelain 2>/dev/null)}"; do
         case "$line" in
             "worktree "*)
                 [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
@@ -469,26 +484,14 @@ function gws() {
         esac
     done
     [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
+    (( ${#wt_paths} )) || return 0
 
-    # Color codes — only on a real terminal (this fd, not a subshell) & no NO_COLOR.
-    local C_RESET="" C_DIM="" C_BOLD="" C_CUR="" C_MAIN="" C_DIRTY="" C_OK="" C_WARN="" C_DIVERGE="" C_GONE=""
-    if [[ -t 1 && -z "$NO_COLOR" ]]; then
-        C_RESET=$'\e[0m'; C_DIM=$'\e[2m'; C_BOLD=$'\e[1m'
-        C_CUR=$'\e[1;36m'    # bold cyan — current worktree
-        C_MAIN=$'\e[34m'     # blue      — main worktree
-        C_DIRTY=$'\e[33m'    # yellow    — uncommitted changes
-        C_OK=$'\e[32m'       # green     — synced / ahead
-        C_WARN=$'\e[33m'     # yellow    — behind
-        C_DIVERGE=$'\e[35m'  # magenta   — diverged (ahead & behind)
-        C_GONE=$'\e[31m'     # red       — upstream gone
-    fi
-
-    local -a rows
+    local -a group
     local i d branch info ts rest when subject state sync sync_color ab ahead behind mark stale is_cur
     local bt subt fb fs fy fsub row
-    local n_dirty=0 n_stale=0 n_removable=0
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
         d="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
+        (( n_total++ ))
 
         # last commit: "<epoch>\x1f<relative>\x1f<subject>" in a single git call
         info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s' 2>/dev/null)"
@@ -523,9 +526,8 @@ function gws() {
         # stale? (only real, non-default branches -> what gwclean would remove)
         stale=""
         if [[ "$branch" != "(detached)" && "$branch" != "$default_br" && "$branch" != (main|master) ]] \
-           && _gw_branch_stale "$branch"; then
+           && _gw_branch_stale "$branch" "$d"; then
             stale=1; (( n_stale++ ))
-            # gwclean skips dirty worktrees, so only clean+stale ones are removable.
             [[ "$state" == clean ]] && (( n_removable++ ))
         fi
 
@@ -552,18 +554,74 @@ function gws() {
             fy="${sync_color}${fy}${C_RESET}"
             row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
         fi
-        rows+=("${ts}"$'\t'"$row")
+        group+=("${ts}"$'\t'"$row")
     done
 
-    # newest commit first (numeric sort on the leading epoch, reversed)
-    rows=("${(@On)rows}")
+    group=("${(@On)group}")                       # newest commit first
+    (( n_shown++ ))
+    (( n_shown > 1 )) && _gw_info ""               # blank line between repo groups
+    [[ -n "$label" ]] && _gw_info "${C_BOLD}${label}${C_RESET}"
+    local r
+    for r in $group; do _gw_info "${r#*$'\t'}"; done
+}
+
+function gws() {
+    local -a flags pos
+    local all=""
+    _gw_split_args "$@"
+    local f
+    for f in $flags; do
+        case "$f" in
+            -a|--all) all=1 ;;
+            *) _gw_error "unknown flag: $f"; return 1 ;;
+        esac
+    done
+
+    # Color codes — only on a real terminal (this fd, not a subshell) & no NO_COLOR.
+    local C_RESET="" C_DIM="" C_BOLD="" C_CUR="" C_MAIN="" C_DIRTY="" C_OK="" C_WARN="" C_DIVERGE="" C_GONE=""
+    if [[ -t 1 && -z "$NO_COLOR" ]]; then
+        C_RESET=$'\e[0m'; C_DIM=$'\e[2m'; C_BOLD=$'\e[1m'
+        C_CUR=$'\e[1;36m'    # bold cyan — current worktree
+        C_MAIN=$'\e[34m'     # blue      — main worktree
+        C_DIRTY=$'\e[33m'    # yellow    — uncommitted changes
+        C_OK=$'\e[32m'       # green     — synced / ahead
+        C_WARN=$'\e[33m'     # yellow    — behind
+        C_DIVERGE=$'\e[35m'  # magenta   — diverged (ahead & behind)
+        C_GONE=$'\e[31m'     # red       — upstream gone
+    fi
+
+    local here; here="$(git rev-parse --show-toplevel 2>/dev/null)"
+    local n_total=0 n_dirty=0 n_stale=0 n_removable=0 n_repos=0 n_shown=0
 
     local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT"
-    _gw_info "${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
-    local r
-    for r in $rows; do _gw_info "${r#*$'\t'}"; done
+    local header="${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
 
-    local summary="${#wt_paths} worktree(s) · ${n_dirty} dirty · ${n_stale} stale"
+    if [[ -n "$all" ]]; then
+        # every repo under $GWT_WORKTREE_DIR — works from anywhere, no repo needed
+        local -a repodirs=(${GWT_WORKTREE_DIR}/*(/N))
+        (( ${#repodirs} )) || { _gw_info "gws: no worktrees under $GWT_WORKTREE_DIR"; return 0; }
+        _gw_info "$header"
+        local repodir
+        local -a wtsub
+        for repodir in $repodirs; do
+            wtsub=(${repodir}/*(/N))
+            (( ${#wtsub} )) || continue
+            (( n_repos++ ))
+            _gw_gather_repo "${repodir:t}" "${wtsub[1]}"
+        done
+    else
+        _gw_repo_dir || return 1
+        _gw_info "$header"
+        _gw_gather_repo "" "$PWD"
+        n_repos=1
+    fi
+
+    local summary
+    if [[ -n "$all" ]]; then
+        summary="${n_total} worktree(s) across ${n_repos} repo(s) · ${n_dirty} dirty · ${n_stale} stale"
+    else
+        summary="${n_total} worktree(s) · ${n_dirty} dirty · ${n_stale} stale"
+    fi
     (( n_removable )) && summary+=" (gwclean would remove ${n_removable})"
     _gw_info ""
     _gw_info "${C_DIM}${summary}${C_RESET}"
