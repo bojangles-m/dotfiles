@@ -29,13 +29,13 @@ alias gwp='git worktree prune'
 # Help for the gw worktree commands.
 function gwt() {
     case "$1" in
-        -v) _gw_info "gwt $GWT_VERSION" ;;
-        -h) _gw_help ;;
-        *)  _gw_help; echo;;
+        -v) _gwt_info "gwt $GWT_VERSION" ;;
+        -h) _gwt_help ;;
+        *)  _gwt_help; echo;;
     esac
 }
 
-function _gw_help() {
+function _gwt_help() {
     cat <<EOF
 gwt: v$GWT_VERSION
 Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
@@ -89,36 +89,36 @@ EOF
 function gwa() {
     local -a flags pos
     local action="copy"                      # default; add more flags below
-    _gw_split_args "$@"
+    _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
             -c) action="copy" ;;
             -o) action="open" ;;
-            *)  _gw_error "unknown flag: $f"; return 1 ;;
+            *)  _gwt_error "unknown flag: $f"; return 1 ;;
         esac
     done
 
     local branch="${pos[1]}" startpoint="${pos[2]}"
     if [[ -z "$branch" ]]; then
-        _gw_error "usage: [-c|-o] <branch> [<start-point>]"
+        _gwt_error "usage: [-c|-o] <branch> [<start-point>]"
         return 1
     fi
 
     local src wt
-    _gw_wt_path "$branch" || return 1        # sets wt (and GWT_REPO_DIR)
+    _gwt_wt_path "$branch" || return 1        # sets wt (and GWT_REPO_DIR)
     src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
 
     # If this branch already has a worktree, reuse it instead of failing.
     local existing
-    existing="$(_gw_worktree_for_branch "$branch")"
+    existing="$(_gwt_worktree_for_branch "$branch")"
     if [[ -n "$existing" ]]; then
         GWT_LAST="$existing"
         case "$action" in
-            open) _gw_info "'$branch' already has a worktree at $existing — opening it"
-                  _gw_open "$existing" ;;
-            copy) _gw_info "'$branch' already has a worktree at $existing"
-                  _gw_copy "$existing" ;;
+            open) _gwt_info "'$branch' already has a worktree at $existing — opening it"
+                  _gwt_open "$existing" ;;
+            copy) _gwt_info "'$branch' already has a worktree at $existing"
+                  _gwt_copy "$existing" ;;
         esac
         return 0
     fi
@@ -126,7 +126,7 @@ function gwa() {
     if git show-ref --verify --quiet "refs/heads/$branch"; then
         git worktree add "$wt" "$branch" >/dev/null || return 1
     elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-        _gw_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
+        _gwt_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
         git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
     else
         git worktree add -b "$branch" "$wt" "${startpoint:-HEAD}" >/dev/null || return 1
@@ -142,17 +142,17 @@ function gwa() {
     # Remember the most recent worktree so a bare `gwo` can reopen it.
     GWT_LAST="$wt"
 
-    _gw_info "worktree: $wt"
+    _gwt_info "worktree: $wt"
 
     # Optional shell-controlled bootstrap (e.g. GWT_POST_INIT_CMD='pnpm install').
     if [[ -n "$GWT_POST_INIT_CMD" ]]; then
         ( cd "$wt" && eval "$GWT_POST_INIT_CMD" ) \
-            || _gw_error "post-create command failed — worktree kept at $wt"
+            || _gwt_error "post-create command failed — worktree kept at $wt"
     fi
 
     case "$action" in
-        copy) _gw_copy "$wt" ;;
-        open) _gw_open "$wt" ;;
+        copy) _gwt_copy "$wt" ;;
+        open) _gwt_open "$wt" ;;
     esac
 }
 
@@ -163,19 +163,19 @@ function gwa() {
 function gwo() {
     local wt
     if [[ -n "$1" ]]; then
-        _gw_wt_path "$1" || return 1
+        _gwt_wt_path "$1" || return 1
     else
         wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
-        _gw_error "usage: <branch>   (or run gwa first, then bare gwo)"
+        _gwt_error "usage: <branch>   (or run gwa first, then bare gwo)"
         return 1
     fi
     if [[ ! -d "$wt" ]]; then
-        _gw_error "no worktree at $wt"
+        _gwt_error "no worktree at $wt"
         return 1
     fi
-    _gw_open "$wt"
+    _gwt_open "$wt"
 }
 
 # cd into a worktree. Without <branch>, cd into recently created worktree.
@@ -183,16 +183,16 @@ function gwo() {
 function gwcd() {
     local wt
     if [[ -n "$1" ]]; then
-        _gw_wt_path "$1" || return 1
+        _gwt_wt_path "$1" || return 1
     else
         wt="$GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
-        _gw_error "usage: <branch>   (or run gwa first, then bare gwcd)"
+        _gwt_error "usage: <branch>   (or run gwa first, then bare gwcd)"
         return 1
     fi
     if [[ ! -d "$wt" ]]; then
-        _gw_error "no worktree at $wt"
+        _gwt_error "no worktree at $wt"
         return 1
     fi
     cd "$wt"
@@ -205,7 +205,7 @@ function gwcd() {
 function gwr() {
     local -a flags pos passthru
     local delete_flag=""             # "" | -d (safe) | -D (force), mirrors git branch
-    _gw_split_args "$@"
+    _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
@@ -216,11 +216,11 @@ function gwr() {
 
     local branch="${pos[1]}"
     if [[ -z "$branch" ]]; then
-        _gw_error "usage: [-d|-D] <branch> [--force]"
+        _gwt_error "usage: [-d|-D] <branch> [--force]"
         return 1
     fi
     local wt
-    _gw_wt_path "$branch" || return 1     # sets wt (and GWT_REPO_DIR)
+    _gwt_wt_path "$branch" || return 1     # sets wt (and GWT_REPO_DIR)
 
     # Capture the branch checked out in the worktree before removing it, so the
     # delete targets the right ref even when <branch> was given in flattened form.
@@ -231,7 +231,7 @@ function gwr() {
     # removes silently with --force; real uncommitted work makes git refuse & warn.
     if (( ${#passthru} )); then
         git worktree remove "$wt" "${passthru[@]}" || return 1
-    elif _gw_worktree_is_clean "$wt"; then
+    elif _gwt_worktree_is_clean "$wt"; then
         git worktree remove --force "$wt" || return 1
     else
         git worktree remove "$wt" || return 1
@@ -244,7 +244,7 @@ function gwr() {
         if git branch "$delete_flag" "$wt_branch"; then
             # Make the "why did it delete?" self-evident: an empty branch is safe.
             [[ "$unique" == 0 ]] && \
-                _gw_info "branch '$wt_branch' had no unique commits — nothing was lost"
+                _gwt_info "branch '$wt_branch' had no unique commits — nothing was lost"
         fi
     fi
 }
@@ -257,31 +257,31 @@ function gwr() {
 function gwclean() {
     local -a flags pos
     local dry=""
-    _gw_split_args "$@"
+    _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
             -n|--dry-run) dry=1 ;;
-            *) _gw_error "unknown flag: $f"; return 1 ;;
+            *) _gwt_error "unknown flag: $f"; return 1 ;;
         esac
     done
 
-    _gw_repo_dir || return 1
+    _gwt_repo_dir || return 1
     git fetch --prune --quiet origin 2>/dev/null
 
     local -a wts=(${GWT_REPO_DIR}/*(/N))
-    (( ${#wts} )) || { _gw_info "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
+    (( ${#wts} )) || { _gwt_info "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
 
     local default_br
-    default_br="${$(_gw_default_branch)#origin/}"
+    default_br="${$(_gwt_default_branch)#origin/}"
 
     local d br x
     local -a removed skipped
     for d in $wts; do
         br="$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null)"
         [[ -z "$br" || "$br" == HEAD || "$br" == (main|master) || "$br" == "$default_br" ]] && continue
-        _gw_branch_stale "$br" || continue
-        if ! _gw_worktree_is_clean "$d"; then
+        _gwt_branch_stale "$br" || continue
+        if ! _gwt_worktree_is_clean "$d"; then
             skipped+=("${d:t} ($br) — uncommitted changes")
             continue
         fi
@@ -297,23 +297,23 @@ function gwclean() {
 
     local verb="removed"; [[ -n "$dry" ]] && verb="would remove"
     if (( ${#removed} )); then
-        _gw_info "gwclean: $verb ${#removed} worktree(s):"
-        for x in $removed; do _gw_info "  $x"; done
+        _gwt_info "gwclean: $verb ${#removed} worktree(s):"
+        for x in $removed; do _gwt_info "  $x"; done
     else
-        _gw_info "gwclean: nothing to clean"
+        _gwt_info "gwclean: nothing to clean"
     fi
     if (( ${#skipped} )); then
-        _gw_info "gwclean: skipped ${#skipped}:"
-        for x in $skipped; do _gw_info "  $x"; done
+        _gwt_info "gwclean: skipped ${#skipped}:"
+        for x in $skipped; do _gwt_info "  $x"; done
     fi
-    [[ -n "$dry" ]] && (( ${#removed} )) && _gw_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
+    [[ -n "$dry" ]] && (( ${#removed} )) && _gwt_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
 }
 
 # Sets the global GWT_REPO_DIR to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
-function _gw_repo_dir() {
+function _gwt_repo_dir() {
     local common
     common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
-        _gw_error "current directory is not inside a git repository"
+        _gwt_error "current directory is not inside a git repository"
         return 1
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
@@ -322,7 +322,7 @@ function _gw_repo_dir() {
 
 # Split argv into caller-local arrays `flags` (tokens starting with -) and
 # `pos` (the rest). Caller must declare: local -a flags pos
-function _gw_split_args() {
+function _gwt_split_args() {
     flags=(); pos=()
     local a
     for a in "$@"; do
@@ -334,13 +334,13 @@ function _gw_split_args() {
 }
 
 # Set caller-local `wt` to the worktree path for <branch>.
-function _gw_wt_path() {
-    _gw_repo_dir || return 1
+function _gwt_wt_path() {
+    _gwt_repo_dir || return 1
     wt="$GWT_REPO_DIR/${1//\//-}"
 }
 
 # Print the path of the worktree that has <branch> checked out, if any.
-function _gw_worktree_for_branch() {
+function _gwt_worktree_for_branch() {
     local target="refs/heads/$1" wtpath="" line
     for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
         case "$line" in
@@ -354,7 +354,7 @@ function _gw_worktree_for_branch() {
 # Expand $GWT_OPEN_CMD for path <$1>: substitute {} (or append if absent).
 # <$2> = quoting style for the path: 'q' shell-quotes it (safe for eval),
 # anything else wraps it in plain double quotes (readable, for clipboard).
-function _gw_open_cmd() {
+function _gwt_open_cmd() {
     local ph='{}' p
     [[ "$2" == q ]] && p="${(q)1}" || p="\"$1\""
     if [[ "$GWT_OPEN_CMD" == *"$ph"* ]]; then
@@ -365,18 +365,18 @@ function _gw_open_cmd() {
 }
 
 # Copy a ready-to-run "open" command (per $GWT_OPEN_CMD) to the clipboard.
-function _gw_copy() {
+function _gwt_copy() {
     command -v pbcopy >/dev/null || return 0
-    _gw_open_cmd "$1" | pbcopy
+    _gwt_open_cmd "$1" | pbcopy
 }
 
 # Open the worktree at <path> using $GWT_OPEN_CMD.
-function _gw_open() {
-    eval "$(_gw_open_cmd "$1" q)"
+function _gwt_open() {
+    eval "$(_gwt_open_cmd "$1" q)"
 }
 
 # True if the worktree at <path> has no real changes.
-function _gw_worktree_is_clean() {
+function _gwt_worktree_is_clean() {
     local line p
     for line in "${(@f)$(git -C "$1" status --porcelain -uall 2>/dev/null)}"; do
         [[ -z "$line" ]] && continue
@@ -390,7 +390,7 @@ function _gw_worktree_is_clean() {
 # Print the repo's default branch as a remote ref, e.g. "origin/main".
 # Prefers the remote's advertised HEAD (set at clone time); else guesses.
 # $1 = optional repo dir to run against (default: cwd).
-function _gw_default_branch() {
+function _gwt_default_branch() {
     local -a C; [[ -n "$1" ]] && C=(-C "$1")
     local ref b
     ref="$(git $C symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" \
@@ -406,9 +406,9 @@ function _gw_default_branch() {
 # "Stale" = branch has no commits of its own beyond the default branch (merged or
 # never diverged), or its upstream is gone. True for such branches — safe to remove.
 # $1 = branch, $2 = optional repo dir to run against (default: cwd).
-function _gw_branch_stale() {
+function _gwt_branch_stale() {
     local -a C; [[ -n "$2" ]] && C=(-C "$2")
-    local base; base="$(_gw_default_branch "$2")"
+    local base; base="$(_gwt_default_branch "$2")"
     [[ -n "$base" ]] && git $C merge-base --is-ancestor "refs/heads/$1" "$base" 2>/dev/null && return 0
     [[ "$(git $C for-each-ref --format='%(upstream:track)' "refs/heads/$1" 2>/dev/null)" == *gone* ]]
 }
@@ -419,7 +419,7 @@ function _gw_branch_stale() {
 
 # complete short branch names — local + remote (origin/ stripped), deduped.
 # Short names are what gwa expects; 'origin/x' would make a bogus local branch.
-function _gw_complete_branches() {
+function _gwt_complete_branches() {
     local -aU names   # -U dedupes local vs remote of the same name
     names=(
         ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)"}
@@ -429,16 +429,16 @@ function _gw_complete_branches() {
 }
 
 # gwo / gwcd / gwr: complete names of existing worktrees under $GWT_REPO_DIR.
-function _gw_complete_worktrees() {
-    _gw_repo_dir 2>/dev/null || return
+function _gwt_complete_worktrees() {
+    _gwt_repo_dir 2>/dev/null || return
     local -a wts
     wts=(${GWT_REPO_DIR}/*(/N))   # (/) dirs only, N nullglob
     compadd -- ${wts:t}       # :t -> basenames
 }
 
 (( $+functions[compdef] )) && {
-    compdef _gw_complete_branches gwa
-    compdef _gw_complete_worktrees gwo gwcd gwr
+    compdef _gwt_complete_branches gwa
+    compdef _gwt_complete_worktrees gwo gwcd gwr
 }
 
 # ---------------------------------------------------------------------------
@@ -459,10 +459,10 @@ function _gw_complete_worktrees() {
 # ---------------------------------------------------------------------------
 
 # Print one repository's worktrees as dashboard rows (helper for gws).
-function _gw_gather_repo() {
+function _gwt_gather_repo() {
     local label="$1" ctx="$2"
     local base default_br
-    base="$(_gw_default_branch "$ctx")"        # computed ONCE per repo (not per worktree)
+    base="$(_gwt_default_branch "$ctx")"        # computed ONCE per repo (not per worktree)
     default_br="${base#origin/}"
 
     # Collect (path, branch) for every worktree of this repo; main is listed first.
@@ -592,21 +592,21 @@ function _gw_gather_repo() {
 
     group=("${(@On)group}")                       # newest commit first
     (( n_shown++ ))
-    (( n_shown > 1 )) && _gw_info ""               # blank line between repo groups
-    [[ -n "$label" ]] && _gw_info "${C_BOLD}${label}${C_RESET}"
+    (( n_shown > 1 )) && _gwt_info ""               # blank line between repo groups
+    [[ -n "$label" ]] && _gwt_info "${C_BOLD}${label}${C_RESET}"
     local r
-    for r in $group; do _gw_info "${r#*$'\t'}"; done
+    for r in $group; do _gwt_info "${r#*$'\t'}"; done
 }
 
 function gws() {
     local -a flags pos
     local all=""
-    _gw_split_args "$@"
+    _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
             -a|--all) all=1 ;;
-            *) _gw_error "unknown flag: $f"; return 1 ;;
+            *) _gwt_error "unknown flag: $f"; return 1 ;;
         esac
     done
 
@@ -632,20 +632,20 @@ function gws() {
     if [[ -n "$all" ]]; then
         # every repo under $GWT_WORKTREE_DIR — works from anywhere, no repo needed
         local -a repodirs=(${GWT_WORKTREE_DIR}/*(/N))
-        (( ${#repodirs} )) || { _gw_info "gws: no worktrees under $GWT_WORKTREE_DIR"; return 0; }
-        _gw_info "$header"
+        (( ${#repodirs} )) || { _gwt_info "gws: no worktrees under $GWT_WORKTREE_DIR"; return 0; }
+        _gwt_info "$header"
         local repodir
         local -a wtsub
         for repodir in $repodirs; do
             wtsub=(${repodir}/*(/N))
             (( ${#wtsub} )) || continue
             (( n_repos++ ))
-            _gw_gather_repo "${repodir:t}" "${wtsub[1]}"
+            _gwt_gather_repo "${repodir:t}" "${wtsub[1]}"
         done
     else
-        _gw_repo_dir || return 1
-        _gw_info "$header"
-        _gw_gather_repo "" "$PWD"
+        _gwt_repo_dir || return 1
+        _gwt_info "$header"
+        _gwt_gather_repo "" "$PWD"
         n_repos=1
     fi
 
@@ -653,31 +653,31 @@ function gws() {
     [[ -n "$all" ]] && summary+=" across ${n_repos} repo(s)"
     summary+=" · ${n_dirty} dirty · ${n_stale} stale"
     (( n_removable )) && summary+=" (gwclean would remove ${n_removable})"
-    _gw_info ""
-    _gw_info "${C_DIM}${summary}${C_RESET}"
+    _gwt_info ""
+    _gwt_info "${C_DIM}${summary}${C_RESET}"
 }
 
 # ---------------------------------------------------------------------------
 # Logging — info to stdout; note/warn/error to stderr
 # ---------------------------------------------------------------------------
 
-function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
-function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
-function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
-function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
+function _gwt_info()  { print -r -- "$*"; }          # normal output, stdout, plain
+function _gwt_note()  { _gwt_emit '38;5;208' "$*"; }  # heads-up (orange)
+function _gwt_warn()  { _gwt_emit '33'        "$*"; } # warning  (yellow)
+function _gwt_error() { _gwt_emit '31'        "$*"; } # failure  (red)
 
-# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
-function _gw_emit() {
-    local msg="$(_gw_cmd): $2"
+# _gwt_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
+function _gwt_emit() {
+    local msg="$(_gwt_cmd): $2"
     [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
     print -r -- "$msg" >&2
 }
 
 # The public gw command that triggered the message: first non-internal frame.
-function _gw_cmd() {
+function _gwt_cmd() {
     local f
     for f in $funcstack; do
-        [[ $f == _gw_* ]] && continue
+        [[ $f == _gwt_* ]] && continue
         print -r -- "$f"; return
     done
     print -r -- gw
