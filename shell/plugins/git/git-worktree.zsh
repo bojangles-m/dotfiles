@@ -459,17 +459,10 @@ function _gw_complete_worktrees() {
 # ---------------------------------------------------------------------------
 
 # Print one repository's worktrees as dashboard rows (helper for gws).
-#
-#   $1  heading shown above the rows, e.g. the repo name ("" = no heading)
-#   $2  any directory inside that repo — all git commands are run there
-#
-# Called only from gws: it borrows the colors ($C_*) and the current-worktree
-# marker ($here) that gws set up, and adds to gws's running counts as it goes
-# ($n_total, $n_dirty, $n_stale, $n_removable).
 function _gw_gather_repo() {
     local label="$1" ctx="$2"
     local base default_br
-    base="$(_gw_default_branch "$ctx")"
+    base="$(_gw_default_branch "$ctx")"        # computed ONCE per repo (not per worktree)
     default_br="${base#origin/}"
 
     # Collect (path, branch) for every worktree of this repo; main is listed first.
@@ -486,47 +479,87 @@ function _gw_gather_repo() {
     [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
     (( ${#wt_paths} )) || return 0
 
-    local -a group
-    local i d branch info ts rest when subject state sync sync_color ab ahead behind mark stale is_cur
-    local bt subt fb fs fy fsub row
+    # ONE bulk query for per-branch metadata: date, "when", upstream, track, subject
+    # (\x1f field separator; parsed with %%/# to preserve empty fields).
+    local SEP=$'\x1f'
+    local -A m_ts m_when m_up m_track m_subj
+    local rec b
+    local fmt="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)${SEP}%(upstream:short)${SEP}%(upstream:track)${SEP}%(contents:subject)"
+    for rec in "${(@f)$(git -C "$ctx" for-each-ref --format=$fmt refs/heads 2>/dev/null)}"; do
+        b="${rec%%${SEP}*}";       rec="${rec#*${SEP}}"
+        m_ts[$b]="${rec%%${SEP}*}";   rec="${rec#*${SEP}}"
+        m_when[$b]="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
+        m_up[$b]="${rec%%${SEP}*}";   rec="${rec#*${SEP}}"
+        m_track[$b]="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
+        m_subj[$b]="$rec"
+    done
+
+    # ONE bulk query for the "merged into default" set (replaces per-branch merge-base).
+    local -A merged
+    if [[ -n "$base" ]]; then
+        for b in "${(@f)$(git -C "$ctx" branch --merged "$base" --format='%(refname:short)' 2>/dev/null)}"; do
+            [[ -n "$b" ]] && merged[$b]=1
+        done
+    fi
+
+    local -a group dirty_flag pids
+    local i d branch ts when subject up track a m mark stale is_cur state sync sync_color
+    local info restd bt subt fb fs fy fsub row tmpd
+
+    # The dirty check is the one per-worktree working-tree scan. The scans are
+    # independent, so run them in parallel and collect the results — wall-time is
+    # ~the slowest single scan instead of the sum. (no_monitor: no job-control spam.)
+    setopt local_options no_monitor
+    tmpd="$(mktemp -d "${TMPDIR:-/tmp}/gws.XXXXXX")"
+    for (( i = 1; i <= ${#wt_paths}; i++ )); do
+        d="${wt_paths[$i]}"
+        { [[ -n "$(git -C "$d" --no-optional-locks status --porcelain 2>/dev/null)" ]] \
+            && print dirty || print clean } > "$tmpd/$i" &
+        pids+=($!)
+    done
+    wait $pids
+    for (( i = 1; i <= ${#wt_paths}; i++ )); do dirty_flag[$i]="$(< $tmpd/$i)"; done
+    rm -rf "$tmpd"
+
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
         d="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
         (( n_total++ ))
 
-        # last commit: "<epoch>\x1f<relative>\x1f<subject>" in a single git call
-        info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s' 2>/dev/null)"
-        ts=0; when="-"; subject="-"
-        if [[ -n "$info" ]]; then
-            ts="${info%%$'\x1f'*}"; rest="${info#*$'\x1f'}"
-            when="${rest%%$'\x1f'*}"; subject="${rest#*$'\x1f'}"
+        # metadata from the bulk query; detached HEADs aren't in refs/heads -> fall back
+        if [[ "$branch" == "(detached)" ]]; then
+            info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s' 2>/dev/null)"
+            ts="${info%%$'\x1f'*}"; restd="${info#*$'\x1f'}"
+            when="${restd%%$'\x1f'*}"; subject="${restd#*$'\x1f'}"
+            [[ -n "$ts" ]] || ts=0; [[ -n "$when" ]] || when="-"; [[ -n "$subject" ]] || subject="-"
+            sync="-"; sync_color="$C_DIM"
+        else
+            ts="${m_ts[$branch]:-0}"; when="${m_when[$branch]:--}"; subject="${m_subj[$branch]:--}"
+            up="${m_up[$branch]}"; track="${m_track[$branch]}"
+            if   [[ "$track" == *gone* ]]; then sync="gone";   sync_color="$C_GONE"
+            elif [[ -z "$up" ]];           then sync="local";  sync_color="$C_DIM"
+            elif [[ -z "$track" ]];        then sync="synced"; sync_color="$C_OK"
+            else
+                a=0; m=0
+                [[ "$track" == *"ahead "* ]]  && { a="${track#*ahead }";  a="${a%%[^0-9]*}"; }
+                [[ "$track" == *"behind "* ]] && { m="${track#*behind }"; m="${m%%[^0-9]*}"; }
+                sync="↑${a:-0} ↓${m:-0}"
+                if   (( ${a:-0} > 0 && ${m:-0} > 0 )); then sync_color="$C_DIVERGE"
+                elif (( ${a:-0} > 0 ));                then sync_color="$C_OK"
+                else                                        sync_color="$C_WARN"; fi
+            fi
         fi
 
-        # dirty? (honest git state; gitignored seed files don't show here)
-        if [[ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]]; then
+        # dirty state was computed in parallel above
+        if [[ "${dirty_flag[$i]}" == dirty ]]; then
             state="dirty"; (( n_dirty++ ))
         else
             state="clean"
         fi
 
-        # ahead/behind upstream (+ a color that encodes the state)
-        if [[ "$branch" == "(detached)" ]]; then
-            sync="-"; sync_color="$C_DIM"
-        elif ab="$(git -C "$d" rev-list --left-right --count HEAD...@{u} 2>/dev/null)"; then
-            ahead="${ab%%[[:space:]]*}"; behind="${ab##*[[:space:]]}"
-            if   (( ahead == 0 && behind == 0 )); then sync="synced";            sync_color="$C_OK"
-            elif (( ahead > 0 && behind > 0 ));   then sync="↑${ahead} ↓${behind}"; sync_color="$C_DIVERGE"
-            elif (( ahead > 0 ));                 then sync="↑${ahead} ↓${behind}"; sync_color="$C_OK"
-            else                                       sync="↑${ahead} ↓${behind}"; sync_color="$C_WARN"; fi
-        elif [[ "$(git -C "$d" for-each-ref --format='%(upstream:track)' "refs/heads/$branch" 2>/dev/null)" == *gone* ]]; then
-            sync="gone"; sync_color="$C_GONE"
-        else
-            sync="local"; sync_color="$C_DIM"
-        fi
-
-        # stale? (only real, non-default branches -> what gwclean would remove)
+        # stale = merged into default (bulk set) OR upstream gone; same guards as gwclean
         stale=""
         if [[ "$branch" != "(detached)" && "$branch" != "$default_br" && "$branch" != (main|master) ]] \
-           && _gw_branch_stale "$branch" "$d"; then
+           && { [[ -n "${merged[$branch]}" ]] || [[ "$sync" == gone ]]; }; then
             stale=1; (( n_stale++ ))
             [[ "$state" == clean ]] && (( n_removable++ ))
         fi
@@ -550,7 +583,7 @@ function _gw_gather_repo() {
             [[ "$mark" == "⌂" ]] && mark="${C_MAIN}⌂${C_RESET}"
             [[ -n "$is_cur" ]] && fb="${C_CUR}${fb}${C_RESET}"          # current branch pops
             if [[ "$state" == dirty ]]; then fs="${C_DIRTY}${fs}${C_RESET}"
-            else                             fs="${C_DIM}${fs}${C_RESET}"; fi   # clean recedes
+            else                             fs="${C_DIM}${fs}${C_RESET}"; fi   # clean/unknown recedes
             fy="${sync_color}${fy}${C_RESET}"
             row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
         fi
@@ -616,12 +649,9 @@ function gws() {
         n_repos=1
     fi
 
-    local summary
-    if [[ -n "$all" ]]; then
-        summary="${n_total} worktree(s) across ${n_repos} repo(s) · ${n_dirty} dirty · ${n_stale} stale"
-    else
-        summary="${n_total} worktree(s) · ${n_dirty} dirty · ${n_stale} stale"
-    fi
+    local summary="${n_total} worktree(s)"
+    [[ -n "$all" ]] && summary+=" across ${n_repos} repo(s)"
+    summary+=" · ${n_dirty} dirty · ${n_stale} stale"
     (( n_removable )) && summary+=" (gwclean would remove ${n_removable})"
     _gw_info ""
     _gw_info "${C_DIM}${summary}${C_RESET}"
