@@ -471,13 +471,20 @@ function gws() {
     [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
 
     # Color codes — only on a real terminal (this fd, not a subshell) & no NO_COLOR.
-    local C_RESET="" C_DIRTY="" C_GONE="" C_DIM="" C_BOLD=""
+    local C_RESET="" C_DIM="" C_BOLD="" C_CUR="" C_MAIN="" C_DIRTY="" C_OK="" C_WARN="" C_DIVERGE="" C_GONE=""
     if [[ -t 1 && -z "$NO_COLOR" ]]; then
-        C_RESET=$'\e[0m'; C_DIRTY=$'\e[33m'; C_GONE=$'\e[31m'; C_DIM=$'\e[2m'; C_BOLD=$'\e[1m'
+        C_RESET=$'\e[0m'; C_DIM=$'\e[2m'; C_BOLD=$'\e[1m'
+        C_CUR=$'\e[1;36m'    # bold cyan — current worktree
+        C_MAIN=$'\e[34m'     # blue      — main worktree
+        C_DIRTY=$'\e[33m'    # yellow    — uncommitted changes
+        C_OK=$'\e[32m'       # green     — synced / ahead
+        C_WARN=$'\e[33m'     # yellow    — behind
+        C_DIVERGE=$'\e[35m'  # magenta   — diverged (ahead & behind)
+        C_GONE=$'\e[31m'     # red       — upstream gone
     fi
 
     local -a rows
-    local i d branch info ts rest when subject state sync ab ahead behind mark stale
+    local i d branch info ts rest when subject state sync sync_color ab ahead behind mark stale is_cur
     local bt subt fb fs fy fsub row
     local n_dirty=0 n_stale=0 n_removable=0
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
@@ -498,17 +505,19 @@ function gws() {
             state="clean"
         fi
 
-        # ahead/behind upstream
+        # ahead/behind upstream (+ a color that encodes the state)
         if [[ "$branch" == "(detached)" ]]; then
-            sync="-"
+            sync="-"; sync_color="$C_DIM"
         elif ab="$(git -C "$d" rev-list --left-right --count HEAD...@{u} 2>/dev/null)"; then
             ahead="${ab%%[[:space:]]*}"; behind="${ab##*[[:space:]]}"
-            if (( ahead == 0 && behind == 0 )); then sync="synced"
-            else sync="↑${ahead} ↓${behind}"; fi
+            if   (( ahead == 0 && behind == 0 )); then sync="synced";            sync_color="$C_OK"
+            elif (( ahead > 0 && behind > 0 ));   then sync="↑${ahead} ↓${behind}"; sync_color="$C_DIVERGE"
+            elif (( ahead > 0 ));                 then sync="↑${ahead} ↓${behind}"; sync_color="$C_OK"
+            else                                       sync="↑${ahead} ↓${behind}"; sync_color="$C_WARN"; fi
         elif [[ "$(git -C "$d" for-each-ref --format='%(upstream:track)' "refs/heads/$branch" 2>/dev/null)" == *gone* ]]; then
-            sync="gone"
+            sync="gone"; sync_color="$C_GONE"
         else
-            sync="local"
+            sync="local"; sync_color="$C_DIM"
         fi
 
         # stale? (only real, non-default branches -> what gwclean would remove)
@@ -526,14 +535,23 @@ function gws() {
         else                                           mark=" "; fi
 
         # pad on plain text, then wrap in color -> columns stay aligned
-        bt="${branch[1,20]}";  fb="${(r:20:)bt}"
+        bt="${branch[1,20]}";    fb="${(r:20:)bt}"
         subt="${subject[1,30]}"; fsub="${(r:30:)subt}"
-        fs="${(r:6:)state}";   fy="${(r:11:)sync}"
-        [[ "$state" == dirty ]] && fs="${C_DIRTY}${fs}${C_RESET}"
-        [[ "$sync"  == gone  ]] && fy="${C_GONE}${fy}${C_RESET}"
+        fs="${(r:6:)state}";     fy="${(r:11:)sync}"
+        is_cur=""; [[ -n "$here" && "$d" == "$here" ]] && is_cur=1
 
-        row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
-        [[ -n "$stale" ]] && row+="  ${C_DIM}⚑ stale${C_RESET}"
+        if [[ -n "$stale" ]]; then
+            # stale rows recede: render plain, then dim the whole line
+            row="${C_DIM}$mark ${fb} ${fs} ${fy} ${fsub}    ${when}  ⚑ stale${C_RESET}"
+        else
+            [[ "$mark" == "▶" ]] && mark="${C_CUR}▶${C_RESET}"
+            [[ "$mark" == "⌂" ]] && mark="${C_MAIN}⌂${C_RESET}"
+            [[ -n "$is_cur" ]] && fb="${C_CUR}${fb}${C_RESET}"          # current branch pops
+            if [[ "$state" == dirty ]]; then fs="${C_DIRTY}${fs}${C_RESET}"
+            else                             fs="${C_DIM}${fs}${C_RESET}"; fi   # clean recedes
+            fy="${sync_color}${fy}${C_RESET}"
+            row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
+        fi
         rows+=("${ts}"$'\t'"$row")
     done
 
