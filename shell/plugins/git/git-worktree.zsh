@@ -1,4 +1,4 @@
-GWT_VERSION="1.0.2"
+GWT_VERSION="1.0.3"
 
 # All worktrees live under $GWT_WORKTREE_DIR/<repo-name>/<branch>.
 # Override the base folder by exporting GWT_WORKTREE_DIR before the shell loads.
@@ -31,13 +31,13 @@ function gwt() {
     case "$1" in
         -v) _gw_info "gwt $GWT_VERSION" ;;
         -h) _gw_help ;;
-        *)  _gw_help; echo; _gw_info "version: $GWT_VERSION" ;;
+        *)  _gw_help; echo;;
     esac
 }
 
 function _gw_help() {
     cat <<EOF
-git worktree helpers
+gwt: v$GWT_VERSION
 Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 
 Usage:
