@@ -106,28 +106,27 @@ EOF
 #   -c : copy the open-command ($GWT_OPEN_CMD) to the clipboard (default)
 #   -o : open the new worktree via $GWT_OPEN_CMD
 function gwa() {
-    # Post-create action; defaults to copying the open-command. Add more flags below.
-    local action="copy"
-    local -a pos
-    local arg
-    for arg in "$@"; do
-        case "$arg" in
+    local -a flags pos
+    local action="copy"                      # default; add more flags below
+    _gw_split_args "$@"
+    local f
+    for f in $flags; do
+        case "$f" in
             -c) action="copy" ;;
             -o) action="open" ;;
-            *)  pos+=("$arg") ;;
+            *)  _gw_error "unknown flag: $f"; return 1 ;;
         esac
     done
 
-    local branch="${pos[1]}"
+    local branch="${pos[1]}" startpoint="${pos[2]}"
     if [[ -z "$branch" ]]; then
         _gw_error "usage: [-c|-o] <branch> [<start-point>]"
         return 1
     fi
-    _gw_repo_dir || return 1
 
     local src wt
+    _gw_wt_path "$branch" || return 1        # sets wt (and GWT_REPO_DIR)
     src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
-    wt="$GWT_REPO_DIR/${branch//\//-}"
 
     # If this branch already has a worktree, reuse it instead of failing.
     local existing
@@ -149,7 +148,7 @@ function gwa() {
         _gw_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
         git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
     else
-        git worktree add -b "$branch" "$wt" "${pos[2]:-HEAD}" >/dev/null || return 1
+        git worktree add -b "$branch" "$wt" "${startpoint:-HEAD}" >/dev/null || return 1
     fi
 
     # Worktrees omit gitignored files; seed the ones this repo needs
@@ -184,8 +183,7 @@ function gwa() {
 function gwo() {
     local wt
     if [[ -n "$1" ]]; then
-        _gw_repo_dir || return 1
-        wt="$GWT_REPO_DIR/${1//\//-}"
+        _gw_wt_path "$1" || return 1
     else
         wt="$GWT_LAST"
     fi
@@ -205,8 +203,7 @@ function gwo() {
 function gwcd() {
     local wt
     if [[ -n "$1" ]]; then
-        _gw_repo_dir || return 1
-        wt="$GWT_REPO_DIR/${1//\//-}"
+        _gw_wt_path "$1" || return 1
     else
         wt="$GWT_LAST"
     fi
@@ -226,15 +223,14 @@ function gwcd() {
 #   -d : also delete the branch (safe: refuses if it has unmerged commits)
 #   -D : also delete the branch (force: even if unmerged)
 function gwr() {
+    local -a flags pos passthru
     local delete_flag=""             # "" | -d (safe) | -D (force), mirrors git branch
-    local -a pos passthru
-    local arg
-    for arg in "$@"; do
-        case "$arg" in
-            -d) delete_flag="-d" ;;
-            -D) delete_flag="-D" ;;
-            -*) passthru+=("$arg") ;;   # e.g. --force -> git worktree remove
-            *)  pos+=("$arg") ;;
+    _gw_split_args "$@"
+    local f
+    for f in $flags; do
+        case "$f" in
+            -d|-D) delete_flag="$f" ;;
+            *)     passthru+=("$f") ;;   # e.g. --force -> git worktree remove
         esac
     done
 
@@ -243,8 +239,8 @@ function gwr() {
         _gw_error "usage: [-d|-D] <branch> [--force]"
         return 1
     fi
-    _gw_repo_dir || return 1
-    local wt="$GWT_REPO_DIR/${branch//\//-}"
+    local wt
+    _gw_wt_path "$branch" || return 1     # sets wt (and GWT_REPO_DIR)
 
     # Capture the branch checked out in the worktree before removing it, so the
     # delete targets the right ref even when <branch> was given in flattened form.
@@ -325,6 +321,25 @@ function _gw_repo_dir() {
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
     GWT_REPO_DIR="$GWT_WORKTREE_DIR/${common:h:t}"   # -> $GWT_WORKTREE_DIR/repo
+}
+
+# Split argv into caller-local arrays `flags` (tokens starting with -) and
+# `pos` (the rest). Caller must declare: local -a flags pos
+function _gw_split_args() {
+    flags=(); pos=()
+    local a
+    for a in "$@"; do
+        case "$a" in
+            -*) flags+=("$a") ;;
+            *)  pos+=("$a") ;;
+        esac
+    done
+}
+
+# Set caller-local `wt` to the worktree path for <branch>.
+function _gw_wt_path() {
+    _gw_repo_dir || return 1
+    wt="$GWT_REPO_DIR/${1//\//-}"
 }
 
 # Print the path of the worktree that has <branch> checked out, if any.
