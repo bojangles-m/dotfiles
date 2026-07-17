@@ -56,7 +56,7 @@ Usage:
                 (A branch with no commits of its own is deleted; nothing is lost.)
           -D    Also delete the branch — force: deletes even with unmerged commits.
 
-  gwclean                           Remove worktrees whose branch is merged into the default branch or gone.
+  gwclean [-n]                      Remove merged/gone worktrees (-n: preview only, removes nothing).
   gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
@@ -245,8 +245,20 @@ function gwr() {
 
 # Remove worktrees whose branch is merged into the default branch or gone from
 # origin, then delete those branches. Dirty and default-branch worktrees are kept.
-# gwclean
+# gwclean [-n]
+#   -n | --dry-run: preview what would be removed, without removing anything
 function gwclean() {
+    local -a flags pos
+    local dry=""
+    _gw_split_args "$@"
+    local f
+    for f in $flags; do
+        case "$f" in
+            -n|--dry-run) dry=1 ;;
+            *) _gw_error "unknown flag: $f"; return 1 ;;
+        esac
+    done
+
     _gw_repo_dir || return 1
     git fetch --prune --quiet origin 2>/dev/null
 
@@ -266,7 +278,9 @@ function gwclean() {
             skipped+=("${d:t} ($br) — uncommitted changes")
             continue
         fi
-        if git worktree remove --force "$d" 2>/dev/null; then
+        if [[ -n "$dry" ]]; then
+            removed+=("${d:t} ($br)")                       # would remove; don't touch anything
+        elif git worktree remove --force "$d" 2>/dev/null; then
             git branch -D "$br" >/dev/null 2>&1
             removed+=("${d:t} ($br)")
         else
@@ -274,8 +288,9 @@ function gwclean() {
         fi
     done
 
+    local verb="removed"; [[ -n "$dry" ]] && verb="would remove"
     if (( ${#removed} )); then
-        _gw_info "gwclean: removed ${#removed} worktree(s):"
+        _gw_info "gwclean: $verb ${#removed} worktree(s):"
         for x in $removed; do _gw_info "  $x"; done
     else
         _gw_info "gwclean: nothing to clean"
@@ -284,6 +299,7 @@ function gwclean() {
         _gw_info "gwclean: skipped ${#skipped}:"
         for x in $skipped; do _gw_info "  $x"; done
     fi
+    [[ -n "$dry" ]] && (( ${#removed} )) && _gw_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
 }
 
 # Sets the global GWT_REPO_DIR to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
