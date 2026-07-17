@@ -577,7 +577,7 @@ function _gw_gather_repo() {
 
         if [[ -n "$stale" ]]; then
             # stale rows recede: render plain, then dim the whole line
-            row="${C_DIM}$mark ${fb} ${fs} ${fy} ${fsub}    ${when}  ⚑ stale${C_RESET}"
+            row="${C_DIM}$mark ${fb}   ${fs} ${fy} ${fsub}    ${when}  ⚑ stale${C_RESET}"
         else
             [[ "$mark" == "▶" ]] && mark="${C_CUR}▶${C_RESET}"
             [[ "$mark" == "⌂" ]] && mark="${C_MAIN}⌂${C_RESET}"
@@ -585,7 +585,7 @@ function _gw_gather_repo() {
             if [[ "$state" == dirty ]]; then fs="${C_DIRTY}${fs}${C_RESET}"
             else                             fs="${C_DIM}${fs}${C_RESET}"; fi   # clean/unknown recedes
             fy="${sync_color}${fy}${C_RESET}"
-            row="$mark ${fb} ${fs} ${fy} ${fsub}    ${when}"
+            row="$mark ${fb}   ${fs} ${fy} ${fsub}    ${when}"
         fi
         group+=("${ts}"$'\t'"$row")
     done
@@ -627,7 +627,7 @@ function gws() {
     local n_total=0 n_dirty=0 n_stale=0 n_removable=0 n_repos=0 n_shown=0
 
     local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT"
-    local header="${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
+    local header="${C_BOLD}  ${(r:20:)h1}   ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
 
     if [[ -n "$all" ]]; then
         # every repo under $GWT_WORKTREE_DIR — works from anywhere, no repo needed
