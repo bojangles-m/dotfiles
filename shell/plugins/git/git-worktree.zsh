@@ -56,7 +56,11 @@ Usage:
                 (A branch with no commits of its own is deleted; nothing is lost.)
           -D    Also delete the branch — force: deletes even with unmerged commits.
 
-  gwclean [-n]                      Remove merged/gone worktrees (-n: preview only, removes nothing).
+  gwclean [-n | --dry-run]
+      Remove worktrees whose branch is merged into the default branch or gone from origin.
+      Unpushed / unmerged branches are KEPT — use gwr for those.
+          -n    Dry run: preview what would be removed; removes nothing.
+
   gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
@@ -547,6 +551,18 @@ function gws() {
 # Logging — info to stdout; note/warn/error to stderr
 # ---------------------------------------------------------------------------
 
+function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
+function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
+function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
+function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
+
+# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
+function _gw_emit() {
+    local msg="$(_gw_cmd): $2"
+    [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
+    print -r -- "$msg" >&2
+}
+
 # The public gw command that triggered the message: first non-internal frame.
 function _gw_cmd() {
     local f
@@ -556,15 +572,3 @@ function _gw_cmd() {
     done
     print -r -- gw
 }
-
-# _gw_emit <ansi-code> <msg>: print "<cmd>: <msg>" to stderr, colored on a TTY.
-function _gw_emit() {
-    local msg="$(_gw_cmd): $2"
-    [[ -t 2 && -z "$NO_COLOR" ]] && msg=$'\e['"$1"'m'"$msg"$'\e[0m'
-    print -r -- "$msg" >&2
-}
-
-function _gw_info()  { print -r -- "$*"; }          # normal output, stdout, plain
-function _gw_note()  { _gw_emit '38;5;208' "$*"; }  # heads-up (orange)
-function _gw_warn()  { _gw_emit '33'        "$*"; } # warning  (yellow)
-function _gw_error() { _gw_emit '31'        "$*"; } # failure  (red)
