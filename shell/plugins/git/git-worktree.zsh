@@ -57,11 +57,13 @@ Usage:
           -D    Also delete the branch — force: deletes even with unmerged commits.
 
   gwclean [-n | --dry-run]
-      Remove worktrees whose branch is merged into the default branch or gone from origin.
-      Unpushed / unmerged branches are KEPT — use gwr for those.
+      Remove "stale" worktrees: branch has no commits of its own beyond the default
+      branch (merged or never diverged), or its remote branch is gone.
+      Branches with unpushed/unmerged commits are KEPT — use gwr for those.
           -n    Dry run: preview what would be removed; removes nothing.
 
   gws                               Worktree status dashboard: branch, dirty, ahead/behind, last commit.
+                                    ⚑ stale marks branches gwclean would remove (see gwclean).
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
@@ -247,8 +249,9 @@ function gwr() {
     fi
 }
 
-# Remove worktrees whose branch is merged into the default branch or gone from
-# origin, then delete those branches. Dirty and default-branch worktrees are kept.
+# Remove "stale" worktrees: branch has no commits of its own beyond the default
+# branch (merged or never diverged), or its remote branch is gone — then delete those
+# branches. Dirty and default-branch worktrees are kept.
 # gwclean [-n]
 #   -n | --dry-run: preview what would be removed, without removing anything
 function gwclean() {
@@ -398,7 +401,8 @@ function _gw_default_branch() {
     return 1
 }
 
-# True if branch <name> is merged into the default branch or its upstream is gone.
+# "Stale" = branch has no commits of its own beyond the default branch (merged or
+# never diverged), or its upstream is gone. True for such branches — safe to remove.
 function _gw_branch_stale() {
     local base
     base="$(_gw_default_branch)"
@@ -443,7 +447,7 @@ function _gw_complete_worktrees() {
 #   sync: ahead/behind,
 #   last-commit: subject + age. 
 #   last commit time: Rows sorted newest-commit-first;
-#   worktree state: ⚑ stale marks
+#   worktree state: ⚑ stale marks, 
 # ---------------------------------------------------------------------------
 function gws() {
     _gw_repo_dir || return 1
