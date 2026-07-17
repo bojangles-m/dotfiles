@@ -83,6 +83,7 @@ Usage:
         -D    Also delete the branch — force: deletes even with unmerged commits.
 
   gwclean                           Remove worktrees whose branch is merged into the default branch or gone.
+  gws                               Status dashboard: branch, dirty, ahead/behind, last commit.
   gwl                               List all worktrees.
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
@@ -152,7 +153,6 @@ function gwa() {
     fi
 
     # Worktrees omit gitignored files; seed the ones this repo needs
-    local f
     for f in $GWT_COPY_FILES; do
         [[ -f "$src/$f" ]] || continue
         mkdir -p "$wt/${f:h}"
@@ -438,4 +438,117 @@ function _gw_complete_worktrees() {
 (( $+functions[compdef] )) && {
     compdef _gw_complete_branches gwa
     compdef _gw_complete_worktrees gwo gwcd gwr
+}
+
+# ---------------------------------------------------------------------------
+# Worktree status dashboard.
+# Columns: 
+#   marker (▶ current / ⌂ main), 
+#   branch name, 
+#   state: dirty/clean, 
+#   sync: ahead/behind,
+#   last-commit: subject + age. 
+#   last commit time: Rows sorted newest-commit-first;
+#   worktree state: ⚑ stale marks
+# ---------------------------------------------------------------------------
+function gws() {
+    _gw_repo_dir || return 1
+
+    local here base default_br
+    here="$(git rev-parse --show-toplevel 2>/dev/null)"
+    base="$(_gw_default_branch)"
+    default_br="${base#origin/}"
+
+    # Collect (path, branch) for every worktree; the first block is the main one.
+    local -a wt_paths wt_branches
+    local line cpath="" cbranch=""
+    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
+        case "$line" in
+            "worktree "*)
+                [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
+                cpath="${line#worktree }"; cbranch="(detached)" ;;
+            "branch refs/heads/"*) cbranch="${line#branch refs/heads/}" ;;
+        esac
+    done
+    [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
+
+    # Color codes — only on a real terminal (this fd, not a subshell) & no NO_COLOR.
+    local C_RESET="" C_DIRTY="" C_GONE="" C_DIM="" C_BOLD=""
+    if [[ -t 1 && -z "$NO_COLOR" ]]; then
+        C_RESET=$'\e[0m'; C_DIRTY=$'\e[33m'; C_GONE=$'\e[31m'; C_DIM=$'\e[2m'; C_BOLD=$'\e[1m'
+    fi
+
+    local -a rows
+    local i d branch info ts rest when subject state sync ab ahead behind mark stale
+    local bt subt fb fs fy fsub row
+    local n_dirty=0 n_stale=0 n_removable=0
+    for (( i = 1; i <= ${#wt_paths}; i++ )); do
+        d="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
+
+        # last commit: "<epoch>\x1f<relative>\x1f<subject>" in a single git call
+        info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s' 2>/dev/null)"
+        ts=0; when="-"; subject="-"
+        if [[ -n "$info" ]]; then
+            ts="${info%%$'\x1f'*}"; rest="${info#*$'\x1f'}"
+            when="${rest%%$'\x1f'*}"; subject="${rest#*$'\x1f'}"
+        fi
+
+        # dirty? (honest git state; gitignored seed files don't show here)
+        if [[ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]]; then
+            state="dirty"; (( n_dirty++ ))
+        else
+            state="clean"
+        fi
+
+        # ahead/behind upstream
+        if [[ "$branch" == "(detached)" ]]; then
+            sync="-"
+        elif ab="$(git -C "$d" rev-list --left-right --count HEAD...@{u} 2>/dev/null)"; then
+            ahead="${ab%%[[:space:]]*}"; behind="${ab##*[[:space:]]}"
+            if (( ahead == 0 && behind == 0 )); then sync="synced"
+            else sync="↑${ahead} ↓${behind}"; fi
+        elif [[ "$(git -C "$d" for-each-ref --format='%(upstream:track)' "refs/heads/$branch" 2>/dev/null)" == *gone* ]]; then
+            sync="gone"
+        else
+            sync="local"
+        fi
+
+        # stale? (only real, non-default branches -> what gwclean would remove)
+        stale=""
+        if [[ "$branch" != "(detached)" && "$branch" != "$default_br" && "$branch" != (main|master) ]] \
+           && _gw_branch_stale "$branch"; then
+            stale=1; (( n_stale++ ))
+            # gwclean skips dirty worktrees, so only clean+stale ones are removable.
+            [[ "$state" == clean ]] && (( n_removable++ ))
+        fi
+
+        # marker: current worktree > main worktree > none
+        if [[ -n "$here" && "$d" == "$here" ]]; then mark="▶"
+        elif (( i == 1 ));                        then mark="⌂"
+        else                                           mark=" "; fi
+
+        # pad on plain text, then wrap in color -> columns stay aligned
+        bt="${branch[1,20]}";  fb="${(r:20:)bt}"
+        subt="${subject[1,30]}"; fsub="${(r:30:)subt}"
+        fs="${(r:6:)state}";   fy="${(r:11:)sync}"
+        [[ "$state" == dirty ]] && fs="${C_DIRTY}${fs}${C_RESET}"
+        [[ "$sync"  == gone  ]] && fy="${C_GONE}${fy}${C_RESET}"
+
+        row="$mark ${fb} ${fs} ${fy} ${fsub} ${when}"
+        [[ -n "$stale" ]] && row+="  ${C_DIM}⚑ stale${C_RESET}"
+        rows+=("${ts}"$'\t'"$row")
+    done
+
+    # newest commit first (numeric sort on the leading epoch, reversed)
+    rows=("${(@On)rows}")
+
+    local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT"
+    _gw_info "${C_BOLD}  ${(r:20:)h1} ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4} WHEN${C_RESET}"
+    local r
+    for r in $rows; do _gw_info "${r#*$'\t'}"; done
+
+    local summary="${#wt_paths} worktree(s) · ${n_dirty} dirty · ${n_stale} stale"
+    (( n_removable )) && summary+=" (gwclean would remove ${n_removable})"
+    _gw_info ""
+    _gw_info "${C_DIM}${summary}${C_RESET}"
 }
