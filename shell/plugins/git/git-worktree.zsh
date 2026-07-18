@@ -127,8 +127,9 @@ function gwa() {
         fi
     fi
 
-    local src wt
-    _gwt_wt_path "$branch" || return 1        # sets wt (and GWT_REPO_DIR)
+    local src wt REPLY
+    _gwt_wt_path "$branch" || return 1
+    wt="$REPLY"
     src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
 
     # If this branch already has a worktree, reuse it instead of failing.
@@ -184,9 +185,10 @@ function gwa() {
 # recently in this shell ($GWT_LAST).
 # gwo [<branch>]
 function gwo() {
-    local wt
+    local wt REPLY
     if [[ -n "$1" ]]; then
         _gwt_wt_path "$1" || return 1
+        wt="$REPLY"
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'open')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
@@ -207,9 +209,10 @@ function gwo() {
 # recently created worktree ($GWT_LAST).
 # gwcd [<branch>]
 function gwcd() {
-    local wt
+    local wt REPLY
     if [[ -n "$1" ]]; then
         _gwt_wt_path "$1" || return 1
+        wt="$REPLY"
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'cd')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
@@ -245,10 +248,10 @@ function gwr() {
 
     # Target worktree path(s): an explicit <branch>, else the interactive picker.
     local -a targets
-    local wt wt_branch unique rc=0
+    local wt wt_branch unique rc=0 REPLY
     if [[ -n "${pos[1]}" ]]; then
-        _gwt_wt_path "${pos[1]}" || return 1     # sets wt (and GWT_REPO_DIR)
-        targets=("$wt")
+        _gwt_wt_path "${pos[1]}" || return 1
+        wt="$REPLY"; targets=("$wt")
     elif _gwt_is_picker_available; then
         targets=("${(@f)$(_gwt_pick -m --skip-current -p 'remove')}") || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
         (( ${#targets} )) || return 0            # nothing selected -> no-op
@@ -303,50 +306,52 @@ function gwclean() {
         esac
     done
 
+    local repo_dir REPLY
     _gwt_repo_dir || return 1
+    repo_dir="$REPLY"
     git fetch --prune --quiet origin 2>/dev/null
 
-    local -a wts=(${GWT_REPO_DIR}/*(/N))
-    (( ${#wts} )) || { _gwt_info "gwclean: no worktrees under $GWT_REPO_DIR"; return 0; }
+    local -a wts=(${repo_dir}/*(/N))
+    (( ${#wts} )) || { _gwt_info "gwclean: no worktrees under $repo_dir"; return 0; }
 
-    local default_br
-    default_br="${$(_gwt_default_branch)#origin/}"
+    local default_branch
+    default_branch="${$(_gwt_default_branch)#origin/}"
 
-    local d br x
+    local wt_dir branch item
     local -a removed skipped
-    for d in $wts; do
-        br="$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-        [[ -z "$br" || "$br" == HEAD || "$br" == (main|master) || "$br" == "$default_br" ]] && continue
-        _gwt_branch_stale "$br" || continue
-        if ! _gwt_worktree_is_clean "$d"; then
-            skipped+=("${d:t} ($br) — uncommitted changes")
+    for wt_dir in $wts; do
+        branch="$(git -C "$wt_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+        [[ -z "$branch" || "$branch" == HEAD || "$branch" == (main|master) || "$branch" == "$default_branch" ]] && continue
+        _gwt_branch_stale "$branch" || continue
+        if ! _gwt_worktree_is_clean "$wt_dir"; then
+            skipped+=("${wt_dir:t} ($branch) — uncommitted changes")
             continue
         fi
         if [[ -n "$dry" ]]; then
-            removed+=("${d:t} ($br)")                       # would remove; don't touch anything
-        elif git worktree remove --force "$d" 2>/dev/null; then
-            git branch -D "$br" >/dev/null 2>&1
-            removed+=("${d:t} ($br)")
+            removed+=("${wt_dir:t} ($branch)")                       # would remove; don't touch anything
+        elif git worktree remove --force "$wt_dir" 2>/dev/null; then
+            git branch -D "$branch" >/dev/null 2>&1
+            removed+=("${wt_dir:t} ($branch)")
         else
-            skipped+=("${d:t} ($br) — remove failed")
+            skipped+=("${wt_dir:t} ($branch) — remove failed")
         fi
     done
 
     local verb="removed"; [[ -n "$dry" ]] && verb="would remove"
     if (( ${#removed} )); then
         _gwt_info "gwclean: $verb ${#removed} worktree(s):"
-        for x in $removed; do _gwt_info "  $x"; done
+        for item in $removed; do _gwt_info "  $item"; done
     else
         _gwt_info "gwclean: nothing to clean"
     fi
     if (( ${#skipped} )); then
         _gwt_info "gwclean: skipped ${#skipped}:"
-        for x in $skipped; do _gwt_info "  $x"; done
+        for item in $skipped; do _gwt_info "  $item"; done
     fi
     [[ -n "$dry" ]] && (( ${#removed} )) && _gwt_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
 }
 
-# Sets the global GWT_REPO_DIR to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
+# Sets REPLY to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
 function _gwt_repo_dir() {
     local common
     common="$(git rev-parse --git-common-dir 2>/dev/null)" || {
@@ -354,7 +359,7 @@ function _gwt_repo_dir() {
         return 1
     }
     common="${common:A}"                     # -> /abs/path/repo/.git
-    GWT_REPO_DIR="$GWT_WORKTREE_DIR/${common:h:t}"   # -> $GWT_WORKTREE_DIR/repo
+    REPLY="$GWT_WORKTREE_DIR/${common:h:t}"   # -> $GWT_WORKTREE_DIR/repo
 }
 
 # Split argv into caller-local arrays `flags` (tokens starting with -) and
@@ -370,10 +375,10 @@ function _gwt_split_args() {
     done
 }
 
-# Set caller-local `wt` to the worktree path for <branch>.
+# Sets REPLY to the worktree path for <branch>: $GWT_WORKTREE_DIR/<repo>/<branch>.
 function _gwt_wt_path() {
-    _gwt_repo_dir || return 1
-    wt="$GWT_REPO_DIR/${1//\//-}"
+    _gwt_repo_dir || return 1                # REPLY = repo dir
+    REPLY="$REPLY/${1//\//-}"
 }
 
 # Print the path of the worktree that has <branch> checked out, if any.
@@ -465,11 +470,12 @@ function _gwt_complete_branches() {
     compadd -- ${names:#HEAD}
 }
 
-# gwo / gwcd / gwr: complete names of existing worktrees under $GWT_REPO_DIR.
+# gwo / gwcd / gwr: complete names of existing worktrees for the current repo.
 function _gwt_complete_worktrees() {
+    local REPLY
     _gwt_repo_dir 2>/dev/null || return
     local -a wts
-    wts=(${GWT_REPO_DIR}/*(/N))   # (/) dirs only, N nullglob
+    wts=(${REPLY}/*(/N))   # (/) dirs only, N nullglob
     compadd -- ${wts:t}       # :t -> basenames
 }
 
@@ -497,15 +503,15 @@ function _gwt_complete_worktrees() {
 
 # Print one repository's worktrees as dashboard rows (helper for gws).
 function _gwt_gather_repo() {
-    local label="$1" ctx="$2"
-    local base default_br
-    base="$(_gwt_default_branch "$ctx")"        # computed ONCE per repo (not per worktree)
-    default_br="${base#origin/}"
+    local label="$1" repo_dir="$2"
+    local base default_branch
+    base="$(_gwt_default_branch "$repo_dir")"        # computed ONCE per repo (not per worktree)
+    default_branch="${base#origin/}"
 
     # Collect (path, branch) for every worktree of this repo; main is listed first.
     local -a wt_paths wt_branches
     local line cpath="" cbranch=""
-    for line in "${(@f)$(git -C "$ctx" worktree list --porcelain 2>/dev/null)}"; do
+    for line in "${(@f)$(git -C "$repo_dir" worktree list --porcelain 2>/dev/null)}"; do
         case "$line" in
             "worktree "*)
                 [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
@@ -522,7 +528,7 @@ function _gwt_gather_repo() {
     local -A m_ts m_when m_up m_track m_subj
     local rec b
     local fmt="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)${SEP}%(upstream:short)${SEP}%(upstream:track)${SEP}%(contents:subject)"
-    for rec in "${(@f)$(git -C "$ctx" for-each-ref --format=$fmt refs/heads 2>/dev/null)}"; do
+    for rec in "${(@f)$(git -C "$repo_dir" for-each-ref --format=$fmt refs/heads 2>/dev/null)}"; do
         b="${rec%%${SEP}*}";       rec="${rec#*${SEP}}"
         m_ts[$b]="${rec%%${SEP}*}";   rec="${rec#*${SEP}}"
         m_when[$b]="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
@@ -534,14 +540,14 @@ function _gwt_gather_repo() {
     # ONE bulk query for the "merged into default" set (replaces per-branch merge-base).
     local -A merged
     if [[ -n "$base" ]]; then
-        for b in "${(@f)$(git -C "$ctx" branch --merged "$base" --format='%(refname:short)' 2>/dev/null)}"; do
+        for b in "${(@f)$(git -C "$repo_dir" branch --merged "$base" --format='%(refname:short)' 2>/dev/null)}"; do
             [[ -n "$b" ]] && merged[$b]=1
         done
     fi
 
     local -a group dirty_flag pids
-    local i d branch ts when subject up track a m mark stale is_cur state sync sync_color
-    local info restd bt subt fb fs fy fsub row tmpd
+    local i d branch ts when subject up track ahead behind mark stale is_cur state sync sync_color
+    local info restd branch_trunc subject_trunc branch_cell state_cell sync_cell subject_cell row tmpd
 
     # The dirty check is the one per-worktree working-tree scan. The scans are
     # independent, so run them in parallel and collect the results — wall-time is
@@ -576,13 +582,13 @@ function _gwt_gather_repo() {
             elif [[ -z "$up" ]];           then sync="local";  sync_color="$C_DIM"
             elif [[ -z "$track" ]];        then sync="synced"; sync_color="$C_OK"
             else
-                a=0; m=0
-                [[ "$track" == *"ahead "* ]]  && { a="${track#*ahead }";  a="${a%%[^0-9]*}"; }
-                [[ "$track" == *"behind "* ]] && { m="${track#*behind }"; m="${m%%[^0-9]*}"; }
-                sync="↑${a:-0} ↓${m:-0}"
-                if   (( ${a:-0} > 0 && ${m:-0} > 0 )); then sync_color="$C_DIVERGE"
-                elif (( ${a:-0} > 0 ));                then sync_color="$C_OK"
-                else                                        sync_color="$C_WARN"; fi
+                ahead=0; behind=0
+                [[ "$track" == *"ahead "* ]]  && { ahead="${track#*ahead }";   ahead="${ahead%%[^0-9]*}"; }
+                [[ "$track" == *"behind "* ]] && { behind="${track#*behind }"; behind="${behind%%[^0-9]*}"; }
+                sync="↑${ahead:-0} ↓${behind:-0}"
+                if   (( ${ahead:-0} > 0 && ${behind:-0} > 0 )); then sync_color="$C_DIVERGE"
+                elif (( ${ahead:-0} > 0 ));                      then sync_color="$C_OK"
+                else                                                 sync_color="$C_WARN"; fi
             fi
         fi
 
@@ -595,7 +601,7 @@ function _gwt_gather_repo() {
 
         # stale = merged into default (bulk set) OR upstream gone; same guards as gwclean
         stale=""
-        if [[ "$branch" != "(detached)" && "$branch" != "$default_br" && "$branch" != (main|master) ]] \
+        if [[ "$branch" != "(detached)" && "$branch" != "$default_branch" && "$branch" != (main|master) ]] \
            && { [[ -n "${merged[$branch]}" ]] || [[ "$sync" == gone ]]; }; then
             stale=1; (( n_stale++ ))
             [[ "$state" == clean ]] && (( n_removable++ ))
@@ -607,22 +613,22 @@ function _gwt_gather_repo() {
         else                                           mark=" "; fi
 
         # pad on plain text, then wrap in color -> columns stay aligned
-        bt="${branch[1,20]}";    fb="${(r:20:)bt}"
-        subt="${subject[1,30]}"; fsub="${(r:30:)subt}"
-        fs="${(r:6:)state}";     fy="${(r:11:)sync}"
+        branch_trunc="${branch[1,20]}";   branch_cell="${(r:20:)branch_trunc}"
+        subject_trunc="${subject[1,30]}"; subject_cell="${(r:30:)subject_trunc}"
+        state_cell="${(r:6:)state}";      sync_cell="${(r:11:)sync}"
         is_cur=""; [[ -n "$here" && "$d" == "$here" ]] && is_cur=1
 
         if [[ -n "$stale" ]]; then
             # stale rows recede: render plain, then dim the whole line
-            row="${C_DIM}$mark ${fb}   ${fs} ${fy} ${fsub}    ${when}  ⚑ stale${C_RESET}"
+            row="${C_DIM}$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when}  ⚑ stale${C_RESET}"
         else
             [[ "$mark" == "▶" ]] && mark="${C_CUR}▶${C_RESET}"
             [[ "$mark" == "⌂" ]] && mark="${C_MAIN}⌂${C_RESET}"
-            [[ -n "$is_cur" ]] && fb="${C_CUR}${fb}${C_RESET}"          # current branch pops
-            if [[ "$state" == dirty ]]; then fs="${C_DIRTY}${fs}${C_RESET}"
-            else                             fs="${C_DIM}${fs}${C_RESET}"; fi   # clean/unknown recedes
-            fy="${sync_color}${fy}${C_RESET}"
-            row="$mark ${fb}   ${fs} ${fy} ${fsub}    ${when}"
+            [[ -n "$is_cur" ]] && branch_cell="${C_CUR}${branch_cell}${C_RESET}"          # current branch pops
+            if [[ "$state" == dirty ]]; then state_cell="${C_DIRTY}${state_cell}${C_RESET}"
+            else                             state_cell="${C_DIM}${state_cell}${C_RESET}"; fi   # clean/unknown recedes
+            sync_cell="${sync_color}${sync_cell}${C_RESET}"
+            row="$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when}"
         fi
         group+=("${ts}"$'\t'"$row")
     done
@@ -637,7 +643,7 @@ function _gwt_gather_repo() {
 
 function gws() {
     local -a flags pos
-    local all=""
+    local all="" REPLY
     _gwt_split_args "$@"
     local f
     for f in $flags; do
@@ -772,12 +778,12 @@ function _gwt_pick() {
 
     # build "ts \t branch \t path" rows, dropping the current worktree if asked
     local -a rows
-    local i p br ts
+    local i path branch ts
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
-        p="${wt_paths[$i]}"; br="${wt_branches[$i]}"
-        [[ -n "$here" && "$p" == "$here" ]] && continue
-        ts="${m_ts[$br]:-0}"
-        rows+=("${ts}"$'\t'"${br}"$'\t'"${p}")
+        path="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
+        [[ -n "$here" && "$path" == "$here" ]] && continue
+        ts="${m_ts[$branch]:-0}"
+        rows+=("${ts}"$'\t'"${branch}"$'\t'"${path}")
     done
     (( ${#rows} )) || { _gwt_warn "no worktrees to pick"; return 1; }
 
@@ -804,8 +810,8 @@ function _gwt_pick() {
     (( rc )) && return $rc                 # propagate fzf's code (130 = ESC/^C abort)
     [[ -n "$sel" ]] || return 1
 
-    local l
-    for l in "${(@f)sel}"; do print -r -- "${l#*$'\t'}"; done   # emit path(s)
+    local sel_line
+    for sel_line in "${(@f)sel}"; do print -r -- "${sel_line#*$'\t'}"; done   # emit path(s)
 }
 
 function _gwt_is_picker_available() { [[ -t 1 ]] && (( $+commands[fzf] )); }
@@ -828,26 +834,26 @@ function _gwt_pick_branch() {
     local SEP=$'\x1f'
     local -A seen
     local -a rows                          # "ts \t display \t branch \t logref"
-    local rec name ts rel disp
+    local rec name ts rel_date display
 
     # local heads (logref = the branch itself)
     for rec in "${(@f)$(git for-each-ref --format="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)" refs/heads 2>/dev/null)}"; do
         name="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
-        ts="${rec%%${SEP}*}"; rel="${rec#*${SEP}}"
+        ts="${rec%%${SEP}*}"; rel_date="${rec#*${SEP}}"
         [[ -z "$name" || -n "${has_wt[$name]}" || -n "${seen[$name]}" ]] && continue
         seen[$name]=1
-        disp="${name[1,45]}"; disp="${(r:45:)disp}  ${rel}"
-        rows+=("${ts}"$'\t'"${disp}"$'\t'"${name}"$'\t'"${name}")
+        display="${name[1,45]}"; display="${(r:45:)display}  ${rel_date}"
+        rows+=("${ts}"$'\t'"${display}"$'\t'"${name}"$'\t'"${name}")
     done
 
     # origin branches without a local counterpart (logref = origin/<name>)
     for rec in "${(@f)$(git for-each-ref --format="%(refname:lstrip=3)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)" refs/remotes/origin 2>/dev/null)}"; do
         name="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
-        ts="${rec%%${SEP}*}"; rel="${rec#*${SEP}}"
+        ts="${rec%%${SEP}*}"; rel_date="${rec#*${SEP}}"
         [[ -z "$name" || "$name" == HEAD || -n "${has_wt[$name]}" || -n "${seen[$name]}" ]] && continue
         seen[$name]=1
-        disp="${name[1,45]}"; disp="${(r:45:)disp}  ${rel}"
-        rows+=("${ts}"$'\t'"${disp}"$'\t'"${name}"$'\t'"origin/${name}")
+        display="${name[1,45]}"; display="${(r:45:)display}  ${rel_date}"
+        rows+=("${ts}"$'\t'"${display}"$'\t'"${name}"$'\t'"origin/${name}")
     done
 
     (( ${#rows} )) || { _gwt_warn "no branches without a worktree to pick"; return 1; }
