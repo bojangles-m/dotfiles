@@ -136,7 +136,7 @@ function gwa() {
     local existing
     existing="$(_gwt_worktree_for_branch "$branch")"
     if [[ -n "$existing" ]]; then
-        GWT_LAST="$existing"
+        _GWT_LAST="$existing"
         case "$action" in
             open) _gwt_info "'$branch' already has a worktree at $existing — opening it"
                   _gwt_open "$existing" ;;
@@ -163,7 +163,7 @@ function gwa() {
     done
 
     # Remember the most recent worktree so a bare `gwo` can reopen it.
-    GWT_LAST="$wt"
+    _GWT_LAST="$wt"
 
     _gwt_info "worktree: $wt"
 
@@ -182,7 +182,7 @@ function gwa() {
 
 # Open a worktree via $GWT_OPEN_CMD (VS Code by default).
 # With no <branch>: fzf picker if available, else the worktree gwa created most
-# recently in this shell ($GWT_LAST).
+# recently in this shell ($_GWT_LAST).
 # gwo [<branch>]
 function gwo() {
     local wt REPLY
@@ -192,7 +192,7 @@ function gwo() {
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'open')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
-        wt="$GWT_LAST"
+        wt="$_GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
         _gwt_error "usage: <branch>   (or run gwa first, then bare gwo)"
@@ -206,7 +206,7 @@ function gwo() {
 }
 
 # cd into a worktree. Without <branch>: fzf picker if available, else the most
-# recently created worktree ($GWT_LAST).
+# recently created worktree ($_GWT_LAST).
 # gwcd [<branch>]
 function gwcd() {
     local wt REPLY
@@ -216,7 +216,7 @@ function gwcd() {
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'cd')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
-        wt="$GWT_LAST"
+        wt="$_GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
         _gwt_error "usage: <branch>   (or run gwa first, then bare gwcd)"
@@ -381,14 +381,29 @@ function _gwt_wt_path() {
     REPLY="$REPLY/${1//\//-}"
 }
 
+# Sets `reply` to one "path<TAB>branch" row per worktree. $1 = optional repo dir
+# (default: cwd). branch is "(detached)" for a detached HEAD. Caller: local -a reply
+function _gwt_worktrees() {
+    local -a C; [[ -n "$1" ]] && C=(-C "$1")
+    reply=()
+    local line cpath="" cbranch=""
+    for line in "${(@f)$(git $C worktree list --porcelain 2>/dev/null)}"; do
+        case "$line" in
+            "worktree "*)
+                [[ -n "$cpath" ]] && reply+=("$cpath"$'\t'"$cbranch")
+                cpath="${line#worktree }"; cbranch="(detached)" ;;
+            "branch refs/heads/"*) cbranch="${line#branch refs/heads/}" ;;
+        esac
+    done
+    [[ -n "$cpath" ]] && reply+=("$cpath"$'\t'"$cbranch")
+}
+
 # Print the path of the worktree that has <branch> checked out, if any.
 function _gwt_worktree_for_branch() {
-    local target="refs/heads/$1" wtpath="" line
-    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
-        case "$line" in
-            "worktree "*)      wtpath="${line#worktree }" ;;
-            "branch $target")  print -r -- "$wtpath"; return 0 ;;
-        esac
+    local -a reply; local row
+    _gwt_worktrees
+    for row in $reply; do
+        [[ "${row#*$'\t'}" == "$1" ]] && { print -r -- "${row%%$'\t'*}"; return 0; }
     done
     return 1
 }
@@ -509,17 +524,12 @@ function _gwt_gather_repo() {
     default_branch="${base#origin/}"
 
     # Collect (path, branch) for every worktree of this repo; main is listed first.
-    local -a wt_paths wt_branches
-    local line cpath="" cbranch=""
-    for line in "${(@f)$(git -C "$repo_dir" worktree list --porcelain 2>/dev/null)}"; do
-        case "$line" in
-            "worktree "*)
-                [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
-                cpath="${line#worktree }"; cbranch="(detached)" ;;
-            "branch refs/heads/"*) cbranch="${line#branch refs/heads/}" ;;
-        esac
+    local -a wt_paths wt_branches reply
+    local wt_row
+    _gwt_worktrees "$repo_dir"
+    for wt_row in $reply; do
+        wt_paths+=("${wt_row%%$'\t'*}"); wt_branches+=("${wt_row#*$'\t'}")
     done
-    [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
     (( ${#wt_paths} )) || return 0
 
     # ONE bulk query for per-branch metadata: date, "when", upstream, track, subject
@@ -753,18 +763,13 @@ function _gwt_pick() {
 
     _gwt_repo_dir || return 1
 
-    # (path, branch) for every worktree of this repo — same parse as _gwt_gather_repo.
-    local -a wt_paths wt_branches
-    local line cpath="" cbranch=""
-    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
-        case "$line" in
-            "worktree "*)
-                [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
-                cpath="${line#worktree }"; cbranch="(detached)" ;;
-            "branch refs/heads/"*) cbranch="${line#branch refs/heads/}" ;;
-        esac
+    # (path, branch) for every worktree of this repo.
+    local -a wt_paths wt_branches reply
+    local line row
+    _gwt_worktrees
+    for row in $reply; do
+        wt_paths+=("${row%%$'\t'*}"); wt_branches+=("${row#*$'\t'}")
     done
-    [[ -n "$cpath" ]] && { wt_paths+=("$cpath"); wt_branches+=("$cbranch"); }
 
     local here=""
     [[ -n "$skip_current" ]] && here="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -826,9 +831,12 @@ function _gwt_pick_branch() {
 
     # Branches already checked out in some worktree -> exclude them.
     local -A has_wt
-    local line
-    for line in "${(@f)$(git worktree list --porcelain 2>/dev/null)}"; do
-        [[ "$line" == "branch refs/heads/"* ]] && has_wt[${line#branch refs/heads/}]=1
+    local -a reply
+    local line row branch
+    _gwt_worktrees
+    for row in $reply; do
+        branch="${row#*$'\t'}"
+        [[ "$branch" != "(detached)" ]] && has_wt[$branch]=1
     done
 
     local SEP=$'\x1f'
