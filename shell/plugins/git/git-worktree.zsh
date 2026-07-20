@@ -799,12 +799,12 @@ function _gwt_pick() {
 
     # build "ts \t branch \t path" rows, dropping the current worktree if asked
     local -a rows
-    local i path branch ts
+    local i wt_path branch ts
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
-        path="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
-        [[ -n "$here" && "$path" == "$here" ]] && continue
+        wt_path="${wt_paths[$i]}"; branch="${wt_branches[$i]}"
+        [[ -n "$here" && "$wt_path" == "$here" ]] && continue
         ts="${m_ts[$branch]:-0}"
-        rows+=("${ts}"$'\t'"${branch}"$'\t'"${path}")
+        rows+=("${ts}"$'\t'"${branch}"$'\t'"${wt_path}")
     done
     (( ${#rows} )) || { _gwt_warn "no worktrees to pick"; return 1; }
 
