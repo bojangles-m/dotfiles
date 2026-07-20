@@ -1,3 +1,7 @@
+# ---------------------------------------------------------------------------
+# Configuration — user-settable knobs (export before the shell loads)
+# ---------------------------------------------------------------------------
+
 GWT_VERSION="1.0.3"
 
 # ---------------------------------------------------------------------------
@@ -36,6 +40,10 @@ GWT_VERSION="1.0.3"
 # Shell control: export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
 # ---------------------------------------------------------------------------
 : ${GWT_PICKER_OPTIONS:=""}
+
+# ---------------------------------------------------------------------------
+# Public commands
+# ---------------------------------------------------------------------------
 
 alias gwl='git worktree list'
 alias gwp='git worktree prune'
@@ -351,6 +359,10 @@ function gwclean() {
     [[ -n "$dry" ]] && (( ${#removed} )) && _gwt_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
 }
 
+# ---------------------------------------------------------------------------
+# Core & git helpers
+# ---------------------------------------------------------------------------
+
 # Sets REPLY to $GWT_WORKTREE_DIR/<repo-name> for the current repo.
 function _gwt_repo_dir() {
     local common
@@ -408,6 +420,10 @@ function _gwt_worktree_for_branch() {
     return 1
 }
 
+# ---------------------------------------------------------------------------
+# Editor & clipboard
+# ---------------------------------------------------------------------------
+
 # Expand $GWT_OPEN_CMD for path <$1>: substitute {} (or append if absent).
 # <$2> = quoting style for the path: 'q' shell-quotes it (safe for eval),
 # anything else wraps it in plain double quotes (readable, for clipboard).
@@ -431,6 +447,10 @@ function _gwt_copy() {
 function _gwt_open() {
     eval "$(_gwt_open_cmd "$1" q)"
 }
+
+# ---------------------------------------------------------------------------
+# Git & branch helpers
+# ---------------------------------------------------------------------------
 
 # True if the worktree at <path> has no real changes.
 function _gwt_worktree_is_clean() {
@@ -737,12 +757,8 @@ function _gwt_cmd() {
 }
 
 # ---------------------------------------------------------------------------
-# Interactive picker powered by fzf (used only if installed).
-# Control it from your shell: export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
+# Interactive picker (fzf) — optional; used only when fzf is installed
 # ---------------------------------------------------------------------------
-: ${GWT_PICKER_OPTIONS:=""}
-
-
 
 # Interactively pick worktree(s) of the current repo.
 # Returns non-zero if (ESC/^C) or nothing is selected
