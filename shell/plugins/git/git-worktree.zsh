@@ -69,7 +69,7 @@ Usage:
                 (both use \$GWT_OPEN_CMD — VS Code by default)
 
   gwo [<branch>]                    Open a worktree in your editor. No <branch>: fzf picker (else the most recent).
-  gwcd [<branch>]                   Change into a worktree. No <branch>: fzf picker (else the most recent).
+  gws [-o] [<branch>]              Switch to a worktree (cd). No <branch>: fzf picker; -o also opens it in your editor.
 
   gwr [-d | -D] [<branch>] [--force]
       Remove a worktree. The branch is KEPT unless you pass -d/-D.
@@ -84,7 +84,7 @@ Usage:
       Branches with unpushed/unmerged commits are KEPT — use gwr for those.
           -n    Dry run: preview what would be removed; removes nothing.
 
-  gws [-a | --all] [-p | --paths]   Worktree status dashboard: branch, dirty, ahead/behind, last commit.
+  gwl [-a | --all] [-p | --paths]   Worktree status dashboard: branch, dirty, ahead/behind, last commit.
                                     ⚑ stale = a gwclean candidate. -a = every repo under GWT_WORKTREE_DIR;
                                     -p = also show each worktree's path + short SHA (replaces plain 'git worktree list').
   gwp                               Prune stale worktree entries.
@@ -212,21 +212,32 @@ function gwo() {
     _gwt_open "$wt"
 }
 
-# cd into a worktree. Without <branch>: fzf picker if available, else the most
-# recently created worktree ($_GWT_LAST).
-# gwcd [<branch>]
-function gwcd() {
+# Switch to a worktree (cd). Without <branch>: fzf picker if available, else the
+# most recently created worktree ($_GWT_LAST). With -o, also open it in the editor.
+# gws [-o] [<branch>]
+function gws() {
+    local -a flags pos
+    local open=""
+    _gwt_split_args "$@"
+    local f
+    for f in $flags; do
+        case "$f" in
+            -o) open=1 ;;
+            *)  _gwt_error "unknown flag: $f"; return 1 ;;
+        esac
+    done
+
     local wt REPLY
-    if [[ -n "$1" ]]; then
-        _gwt_wt_path "$1" || return 1
+    if [[ -n "${pos[1]}" ]]; then
+        _gwt_wt_path "${pos[1]}" || return 1
         wt="$REPLY"
     elif _gwt_is_picker_available; then
-        wt="$(_gwt_pick -p 'cd')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
+        wt="$(_gwt_pick -p 'switch')" || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
     else
         wt="$_GWT_LAST"
     fi
     if [[ -z "$wt" ]]; then
-        _gwt_error "usage: <branch>   (or run gwa first, then bare gwcd)"
+        _gwt_error "usage: [-o] <branch>   (or run gwa first, then bare gws)"
         return 1
     fi
     if [[ ! -d "$wt" ]]; then
@@ -234,6 +245,7 @@ function gwcd() {
         return 1
     fi
     cd "$wt"
+    [[ -n "$open" ]] && _gwt_open "$wt"     # -o: also open in $GWT_OPEN_CMD
 }
 
 # Remove the worktree gwa created for <branch>.
@@ -504,7 +516,7 @@ function _gwt_complete_branches() {
     compadd -- ${names:#HEAD}
 }
 
-# gwo / gwcd / gwr: complete names of existing worktrees for the current repo.
+# gwo / gws / gwr: complete names of existing worktrees for the current repo.
 function _gwt_complete_worktrees() {
     local REPLY
     _gwt_repo_dir 2>/dev/null || return
@@ -515,7 +527,7 @@ function _gwt_complete_worktrees() {
 
 (( $+functions[compdef] )) && {
     compdef _gwt_complete_branches gwa
-    compdef _gwt_complete_worktrees gwo gwcd gwr
+    compdef _gwt_complete_worktrees gwo gws gwr
 }
 
 # ---------------------------------------------------------------------------
@@ -531,11 +543,11 @@ function _gwt_complete_worktrees() {
 # Rows are sorted newest-commit-first.
 # ⚑ stale marks branches gwclean would remove (merged, never diverged, or gone).
 #
-# Usage: gws [-a | --all]
+# Usage: gwl [-a | --all]
 #   -a   show every repo under $GWT_WORKTREE_DIR (works from any directory)
 # ---------------------------------------------------------------------------
 
-# Print one repository's worktrees as dashboard rows (helper for gws).
+# Print one repository's worktrees as dashboard rows (helper for gwl).
 function _gwt_gather_repo() {
     local label="$1" repo_dir="$2"
     local base default_branch
@@ -584,7 +596,7 @@ function _gwt_gather_repo() {
     # independent, so run them in parallel and collect the results — wall-time is
     # ~the slowest single scan instead of the sum. (no_monitor: no job-control spam.)
     setopt local_options no_monitor
-    tmpd="$(mktemp -d "${TMPDIR:-/tmp}/gws.XXXXXX")"
+    tmpd="$(mktemp -d "${TMPDIR:-/tmp}/gwl.XXXXXX")"
     for (( i = 1; i <= ${#wt_paths}; i++ )); do
         d="${wt_paths[$i]}"
         { [[ -n "$(git -C "$d" --no-optional-locks status --porcelain 2>/dev/null)" ]] \
@@ -680,7 +692,7 @@ function _gwt_gather_repo() {
     for r in $group; do _gwt_info "${r#*$'\t'}"; done
 }
 
-function gws() {
+function gwl() {
     local -a flags pos
     local all="" show_paths="" REPLY
     _gwt_split_args "$@"
@@ -717,7 +729,7 @@ function gws() {
     if [[ -n "$all" ]]; then
         # every repo under $GWT_WORKTREE_DIR — works from anywhere, no repo needed
         local -a repodirs=(${GWT_WORKTREE_DIR}/*(/N))
-        (( ${#repodirs} )) || { _gwt_info "gws: no worktrees under $GWT_WORKTREE_DIR"; return 0; }
+        (( ${#repodirs} )) || { _gwt_info "gwl: no worktrees under $GWT_WORKTREE_DIR"; return 0; }
         _gwt_info "$header"
         local repodir
         local -a wtsub
@@ -802,7 +814,7 @@ function _gwt_pick() {
     local here=""
     [[ -n "$skip_current" ]] && here="$(git rev-parse --show-toplevel 2>/dev/null)"
 
-    # one bulk query for commit times -> newest-first ordering (matches gws)
+    # one bulk query for commit times -> newest-first ordering (matches gwl)
     local -A m_ts
     local rec
     for rec in "${(@f)$(git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs/heads 2>/dev/null)}"; do
