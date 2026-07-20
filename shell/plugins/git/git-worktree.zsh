@@ -208,10 +208,10 @@ function gwa() {
 # recently in this shell ($_GWT_LAST).
 # gwo [<branch>]
 function gwo() {
-    local wt REPLY
+    local wt
     if [[ -n "$1" ]]; then
-        _gwt_wt_path "$1" || return 1
-        wt="$REPLY"
+        wt="$(_gwt_worktree_for_branch "$1")"     # real path from git worktree list
+        [[ -n "$wt" ]] || { _gwt_error "no worktree for branch '$1'"; return 1; }
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'open')" || { [[ $? == 130 ]] && print -z -- "$0 "; return 0; }   # ESC -> reinject cmd
     else
@@ -243,10 +243,10 @@ function gws() {
         esac
     done
 
-    local wt REPLY
+    local wt
     if [[ -n "${pos[1]}" ]]; then
-        _gwt_wt_path "${pos[1]}" || return 1
-        wt="$REPLY"
+        wt="$(_gwt_worktree_for_branch "${pos[1]}")"     # real path from git worktree list
+        [[ -n "$wt" ]] || { _gwt_error "no worktree for branch '${pos[1]}'"; return 1; }
     elif _gwt_is_picker_available; then
         wt="$(_gwt_pick -p 'switch')" || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
     else
@@ -283,10 +283,11 @@ function gwr() {
 
     # Target worktree path(s): an explicit <branch>, else the interactive picker.
     local -a targets
-    local wt wt_branch unique rc=0 REPLY
+    local wt wt_branch unique rc=0
     if [[ -n "${pos[1]}" ]]; then
-        _gwt_wt_path "${pos[1]}" || return 1
-        wt="$REPLY"; targets=("$wt")
+        wt="$(_gwt_worktree_for_branch "${pos[1]}")"     # real path from git worktree list
+        [[ -n "$wt" ]] || { _gwt_error "no worktree for branch '${pos[1]}'"; return 1; }
+        targets=("$wt")
     elif _gwt_is_picker_available; then
         targets=("${(@f)$(_gwt_pick -m --skip-current -p 'remove')}") || { [[ $? == 130 ]] && print -z -- "${0}${flags:+ $flags} "; return 0; }   # ESC -> reinject cmd
         (( ${#targets} )) || return 0            # nothing selected -> no-op
@@ -567,13 +568,21 @@ function _gwt_complete_branches() {
     compadd -- ${names:#HEAD}
 }
 
-# gwo / gws / gwr: complete names of existing worktrees for the current repo.
+# gwo / gws / gwr: complete branches that currently have a worktree.
+# gwr drops the primary worktree — git refuses to remove the main working tree.
 function _gwt_complete_worktrees() {
-    local REPLY
-    _gwt_repo_dir 2>/dev/null || return
-    local -a wts
-    wts=(${REPLY}/*(/N))   # (/) dirs only, N nullglob
-    compadd -- ${wts:t}       # :t -> basenames
+    local -a reply; local row b
+    _gwt_worktrees 2>/dev/null            # reply = "path<TAB>branch" rows, primary first
+    local -a branches
+    local i=0
+    for row in $reply; do
+        (( i++ ))
+        [[ "$words[1]" == gwr ]] && (( i == 1 )) && continue   # skip primary for gwr
+        b="${row#*$'\t'}"
+        [[ "$b" == "(detached)" ]] && continue
+        branches+=("$b")
+    done
+    compadd -- $branches
 }
 
 (( $+functions[compdef] )) && {
