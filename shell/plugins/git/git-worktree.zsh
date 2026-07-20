@@ -62,11 +62,14 @@ gwt: v$GWT_VERSION
 Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 
 Usage:
-  gwa [-c | -o] [<branch>] [<start-point>]
-      Create a new worktree. No <branch>: fzf picker of branches without a worktree.
+  gwa [-c | -o] [-m] [<branch>] [<start-point>]
+      Create a new worktree. No <branch>: fzf picker — pick an existing branch to adopt,
+      or type a new name and press enter to create it.
           -c    Copy the "open" command to the clipboard (default)
           -o    Open the worktree in your editor
                 (both use \$GWT_OPEN_CMD — VS Code by default)
+          -m    Base a NEW branch on the local default branch (main) instead of the
+                current HEAD. --from-main. Ignored if <branch> already exists.
 
   gwo [<branch>]                    Open a worktree in your editor. No <branch>: fzf picker (else the most recent).
   gws [-o] [<branch>]              Switch to a worktree (cd). No <branch>: fzf picker; -o also opens it in your editor.
@@ -105,24 +108,34 @@ EOF
 }
 
 # Worktree at $GWT_WORKTREE_DIR/<repo>/<branch>
-# gwa [-c | -o] [<branch>] [<start-point>]
+# gwa [-c | -o] [-m] [<branch>] [<start-point>]
 #   -c : copy the open-command ($GWT_OPEN_CMD) to the clipboard (default)
 #   -o : open the new worktree via $GWT_OPEN_CMD
-# With no <branch>: fzf picker of branches that don't have a worktree yet.
+#   -m : base a NEW branch on the local default branch instead of HEAD (--from-main)
+# With no <branch>: fzf picker — adopt an existing branch, or type a new name to create it.
 function gwa() {
     local -a flags pos
     local action="copy"                      # default; add more flags below
+    local from_main=""
     _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
             -c) action="copy" ;;
             -o) action="open" ;;
+            -m|--from-main) from_main=1 ;;
             *)  _gwt_error "unknown flag: $f"; return 1 ;;
         esac
     done
 
     local branch="${pos[1]}" startpoint="${pos[2]}"
+    if [[ -n "$from_main" ]]; then
+        [[ -n "$startpoint" ]] && { _gwt_error "-m conflicts with an explicit <start-point>"; return 1; }
+        startpoint="${$(_gwt_default_branch)#origin/}"   # local default branch, e.g. main
+        [[ -z "$startpoint" ]] && { _gwt_error "could not determine the default branch"; return 1; }
+        git show-ref --verify --quiet "refs/heads/$startpoint" \
+            || { _gwt_error "no local '$startpoint' branch to base on — fetch/checkout it first"; return 1; }
+    fi
     if [[ -z "$branch" ]]; then
         # No branch given: pick an existing branch that has no worktree yet.
         if _gwt_is_picker_available; then
@@ -153,13 +166,21 @@ function gwa() {
         return 0
     fi
 
+    # git's own "Preparing worktree (new branch 'x')" line (stderr) already names the
+    # branch and whether it's new/checked-out — so we only add the one thing git omits:
+    # the base a NEW branch was cut from.
+    local base=""
     if git show-ref --verify --quiet "refs/heads/$branch"; then
         git worktree add "$wt" "$branch" >/dev/null || return 1
     elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
         _gwt_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
         git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
     else
-        git worktree add -b "$branch" "$wt" "${startpoint:-HEAD}" >/dev/null || return 1
+        local sp="${startpoint:-HEAD}"
+        git worktree add -b "$branch" "$wt" "$sp" >/dev/null || return 1
+        # Resolve a bare HEAD to the current branch name (short SHA if detached).
+        [[ "$sp" == HEAD ]] && sp="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)"
+        base="$sp"
     fi
 
     # Worktrees omit gitignored files; seed the ones this repo needs
@@ -172,7 +193,7 @@ function gwa() {
     # Remember the most recent worktree so a bare `gwo` can reopen it.
     _GWT_LAST="$wt"
 
-    _gwt_info "worktree: $wt"
+    _gwt_info "worktree: $wt${base:+  (from $base)}"
 
     # Optional shell-controlled bootstrap (e.g. GWT_POST_INIT_CMD='pnpm install').
     if [[ -n "$GWT_POST_INIT_CMD" ]]; then
@@ -904,27 +925,38 @@ function _gwt_pick_branch() {
         rows+=("${ts}"$'\t'"${display}"$'\t'"${name}"$'\t'"origin/${name}")
     done
 
-    (( ${#rows} )) || { _gwt_warn "no branches without a worktree to pick"; return 1; }
-
-    rows=("${(@On)rows}")                  # newest commit first
+    # No early return on an empty list: you can still type a NEW name to create it.
+    rows=("${(@On)rows}")                  # newest commit first (no-op if empty)
     local -a menu
     for line in $rows; do menu+=("${line#*$'\t'}"); done   # drop ts -> "display \t branch \t logref"
 
-    # fzf shows the padded "branch  date" (field 1); branch (2) + logref (3) ride along.
-    local sel
-    sel="$(print -rl -- $menu | fzf --ansi \
+    # --print-query makes fzf return what you TYPED (line 1) alongside what you
+    # SELECTED (line 2+). Highlighted an existing branch -> adopt it; typed a name that
+    # matched nothing -> create it as a new branch (gwa routes new-vs-existing itself).
+    local out
+    out="$(print -rl -- $menu | fzf --ansi \
+        --print-query \
         --delimiter=$'\t' --with-nth=1 \
         --height=40% --reverse --border \
         --prompt='branch> ' \
-        --header='enter: create worktree   ctrl-/: toggle preview' \
+        --header='enter: adopt highlighted · type a new name + enter: create it   ctrl-/: toggle preview' \
         --preview 'git log -1 --format="%an · %ar" {3} 2>/dev/null; echo; git log --oneline --decorate -20 {3} 2>/dev/null' \
         --preview-window='right,55%,border-left' \
         --bind 'ctrl-/:toggle-preview' \
         ${=GWT_PICKER_OPTIONS})"
     local rc=$?
-    (( rc )) && return $rc                  # propagate fzf's code (130 = ESC/^C abort)
-    [[ -n "$sel" ]] || return 1
+    (( rc == 130 )) && return 130           # ESC/^C abort
 
-    local rest="${sel#*$'\t'}"             # drop display -> "branch \t logref"
-    print -r -- "${rest%%$'\t'*}"          # emit the short branch name
+    local query sel
+    query="${out%%$'\n'*}"                   # line 1 = the typed query
+    sel="${out#*$'\n'}"; [[ "$sel" == "$out" ]] && sel=""   # line 2+ = selection, if any
+
+    if [[ -n "$sel" ]]; then
+        local rest="${sel#*$'\t'}"           # drop display -> "branch \t logref"
+        print -r -- "${rest%%$'\t'*}"        # adopt: emit the highlighted branch name
+    elif [[ -n "$query" ]]; then
+        print -r -- "$query"                 # create: emit the typed new branch name
+    else
+        return 1                              # nothing typed, nothing selected
+    fi
 }
