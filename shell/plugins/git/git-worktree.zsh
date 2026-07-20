@@ -45,7 +45,6 @@ GWT_VERSION="1.0.3"
 # Public commands
 # ---------------------------------------------------------------------------
 
-alias gwl='git worktree list'
 alias gwp='git worktree prune'
 
 # Help for the gw worktree commands.
@@ -85,9 +84,9 @@ Usage:
       Branches with unpushed/unmerged commits are KEPT — use gwr for those.
           -n    Dry run: preview what would be removed; removes nothing.
 
-  gws [-a | --all]                  Worktree status dashboard: branch, dirty, ahead/behind, last commit.
-                                    ⚑ stale = a gwclean candidate. -a shows every repo under GWT_WORKTREE_DIR.
-  gwl                               List all worktrees.
+  gws [-a | --all] [-p | --paths]   Worktree status dashboard: branch, dirty, ahead/behind, last commit.
+                                    ⚑ stale = a gwclean candidate. -a = every repo under GWT_WORKTREE_DIR;
+                                    -p = also show each worktree's path + short SHA (replaces plain 'git worktree list').
   gwp                               Prune stale worktree entries.
   gwt [-v | -h]                     Show this help or version.
 
@@ -555,16 +554,17 @@ function _gwt_gather_repo() {
     # ONE bulk query for per-branch metadata: date, "when", upstream, track, subject
     # (\x1f field separator; parsed with %%/# to preserve empty fields).
     local SEP=$'\x1f'
-    local -A m_ts m_when m_up m_track m_subj
+    local -A m_ts m_when m_up m_track m_subj m_sha
     local rec b
-    local fmt="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)${SEP}%(upstream:short)${SEP}%(upstream:track)${SEP}%(contents:subject)"
+    local fmt="%(refname:short)${SEP}%(committerdate:unix)${SEP}%(committerdate:relative)${SEP}%(upstream:short)${SEP}%(upstream:track)${SEP}%(contents:subject)${SEP}%(objectname:short)"
     for rec in "${(@f)$(git -C "$repo_dir" for-each-ref --format=$fmt refs/heads 2>/dev/null)}"; do
-        b="${rec%%${SEP}*}";       rec="${rec#*${SEP}}"
-        m_ts[$b]="${rec%%${SEP}*}";   rec="${rec#*${SEP}}"
-        m_when[$b]="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
-        m_up[$b]="${rec%%${SEP}*}";   rec="${rec#*${SEP}}"
+        b="${rec%%${SEP}*}";        rec="${rec#*${SEP}}"
+        m_ts[$b]="${rec%%${SEP}*}";    rec="${rec#*${SEP}}"
+        m_when[$b]="${rec%%${SEP}*}";  rec="${rec#*${SEP}}"
+        m_up[$b]="${rec%%${SEP}*}";    rec="${rec#*${SEP}}"
         m_track[$b]="${rec%%${SEP}*}"; rec="${rec#*${SEP}}"
-        m_subj[$b]="$rec"
+        m_subj[$b]="${rec%%${SEP}*}";  rec="${rec#*${SEP}}"
+        m_sha[$b]="$rec"
     done
 
     # ONE bulk query for the "merged into default" set (replaces per-branch merge-base).
@@ -578,6 +578,7 @@ function _gwt_gather_repo() {
     local -a group dirty_flag pids
     local i d branch ts when subject up track ahead behind mark stale is_cur state sync sync_color
     local info restd branch_trunc subject_trunc branch_cell state_cell sync_cell subject_cell row tmpd
+    local sha when_out path_info
 
     # The dirty check is the one per-worktree working-tree scan. The scans are
     # independent, so run them in parallel and collect the results — wall-time is
@@ -600,13 +601,15 @@ function _gwt_gather_repo() {
 
         # metadata from the bulk query; detached HEADs aren't in refs/heads -> fall back
         if [[ "$branch" == "(detached)" ]]; then
-            info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s' 2>/dev/null)"
+            info="$(git -C "$d" log -1 --format='%ct%x1f%cr%x1f%s%x1f%h' 2>/dev/null)"
             ts="${info%%$'\x1f'*}"; restd="${info#*$'\x1f'}"
-            when="${restd%%$'\x1f'*}"; subject="${restd#*$'\x1f'}"
+            when="${restd%%$'\x1f'*}"; restd="${restd#*$'\x1f'}"
+            subject="${restd%%$'\x1f'*}"; sha="${restd#*$'\x1f'}"
             [[ -n "$ts" ]] || ts=0; [[ -n "$when" ]] || when="-"; [[ -n "$subject" ]] || subject="-"
             sync="-"; sync_color="$C_DIM"
         else
             ts="${m_ts[$branch]:-0}"; when="${m_when[$branch]:--}"; subject="${m_subj[$branch]:--}"
+            sha="${m_sha[$branch]}"
             up="${m_up[$branch]}"; track="${m_track[$branch]}"
             if   [[ "$track" == *gone* ]]; then sync="gone";   sync_color="$C_GONE"
             elif [[ -z "$up" ]];           then sync="local";  sync_color="$C_DIM"
@@ -648,9 +651,15 @@ function _gwt_gather_repo() {
         state_cell="${(r:6:)state}";      sync_cell="${(r:11:)sync}"
         is_cur=""; [[ -n "$here" && "$d" == "$here" ]] && is_cur=1
 
+        # -p: pad WHEN so COMMIT aligns, then append short SHA + full path
+        when_out="$when"; path_info=""
+        if [[ -n "$show_paths" ]]; then
+            when_out="${(r:16:)when}"; path_info=" ${(r:7:)sha}  ${d}"
+        fi
+
         if [[ -n "$stale" ]]; then
             # stale rows recede: render plain, then dim the whole line
-            row="${C_DIM}$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when}  ⚑ stale${C_RESET}"
+            row="${C_DIM}$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when_out}${path_info}  ⚑ stale${C_RESET}"
         else
             [[ "$mark" == "▶" ]] && mark="${C_CUR}▶${C_RESET}"
             [[ "$mark" == "⌂" ]] && mark="${C_MAIN}⌂${C_RESET}"
@@ -658,7 +667,7 @@ function _gwt_gather_repo() {
             if [[ "$state" == dirty ]]; then state_cell="${C_DIRTY}${state_cell}${C_RESET}"
             else                             state_cell="${C_DIM}${state_cell}${C_RESET}"; fi   # clean/unknown recedes
             sync_cell="${sync_color}${sync_cell}${C_RESET}"
-            row="$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when}"
+            row="$mark ${branch_cell}   ${state_cell} ${sync_cell} ${subject_cell}    ${when_out}${path_info}"
         fi
         group+=("${ts}"$'\t'"$row")
     done
@@ -673,12 +682,13 @@ function _gwt_gather_repo() {
 
 function gws() {
     local -a flags pos
-    local all="" REPLY
+    local all="" show_paths="" REPLY
     _gwt_split_args "$@"
     local f
     for f in $flags; do
         case "$f" in
-            -a|--all) all=1 ;;
+            -a|--all)   all=1 ;;
+            -p|--paths) show_paths=1 ;;
             *) _gwt_error "unknown flag: $f"; return 1 ;;
         esac
     done
@@ -699,8 +709,10 @@ function gws() {
     local here; here="$(git rev-parse --show-toplevel 2>/dev/null)"
     local n_total=0 n_dirty=0 n_stale=0 n_removable=0 n_repos=0 n_shown=0
 
-    local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT"
-    local header="${C_BOLD}  ${(r:20:)h1}   ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    WHEN${C_RESET}"
+    local h1=BRANCH h2=STATE h3=SYNC h4="LAST COMMIT" h5=WHEN h6=COMMIT
+    local header="${C_BOLD}  ${(r:20:)h1}   ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    ${h5}${C_RESET}"
+    [[ -n "$show_paths" ]] && \
+        header="${C_BOLD}  ${(r:20:)h1}   ${(r:6:)h2} ${(r:11:)h3} ${(r:30:)h4}    ${(r:16:)h5} ${(r:7:)h6}  PATH${C_RESET}"
 
     if [[ -n "$all" ]]; then
         # every repo under $GWT_WORKTREE_DIR — works from anywhere, no repo needed
