@@ -147,10 +147,8 @@ function gwa() {
         fi
     fi
 
-    local src wt REPLY
-    _gwt_wt_path "$branch" || return 1
-    wt="$REPLY"
-    src="$(git rev-parse --show-toplevel)"   # current checkout, source of .env
+    local src
+    src="$(git rev-parse --show-toplevel)"   # current checkout, source of seed files
 
     # If this branch already has a worktree, reuse it instead of failing.
     local existing
@@ -166,33 +164,16 @@ function gwa() {
         return 0
     fi
 
-    # git's own "Preparing worktree (new branch 'x')" line (stderr) already names the
-    # branch and whether it's new/checked-out — so we only add the one thing git omits:
-    # the base a NEW branch was cut from.
-    local base=""
-    if git show-ref --verify --quiet "refs/heads/$branch"; then
-        git worktree add "$wt" "$branch" >/dev/null || return 1
-    elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-        _gwt_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
-        git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
-    else
-        local sp="${startpoint:-HEAD}"
-        git worktree add -b "$branch" "$wt" "$sp" >/dev/null || return 1
-        # Resolve a bare HEAD to the current branch name (short SHA if detached).
-        [[ "$sp" == HEAD ]] && sp="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)"
-        base="$sp"
-    fi
-
-    # Worktrees omit gitignored files; seed the ones this repo needs
-    for f in $GWT_COPY_FILES; do
-        [[ -f "$src/$f" ]] || continue
-        mkdir -p "$wt/${f:h}"
-        cp "$src/$f" "$wt/$f"
-    done
+    local -a reply
+    _gwt_create_worktree "$branch" "$startpoint" || return 1
+    local wt="${reply[1]}" base="${reply[2]}"
+    _gwt_seed_files "$src" "$wt"
 
     # Remember the most recent worktree so a bare `gwo` can reopen it.
     _GWT_LAST="$wt"
 
+    # git already prints "Preparing worktree (new branch 'x')"; we add only the base
+    # a NEW branch was cut from (empty otherwise, so nothing duplicative is shown).
     _gwt_info "worktree: $wt${base:+  (from $base)}"
 
     # Optional shell-controlled bootstrap (e.g. GWT_POST_INIT_CMD='pnpm install').
@@ -450,6 +431,41 @@ function _gwt_worktree_for_branch() {
         [[ "${row#*$'\t'}" == "$1" ]] && { print -r -- "${row%%$'\t'*}"; return 0; }
     done
     return 1
+}
+
+# Create the worktree for <branch> at $GWT_WORKTREE_DIR/<repo>/<branch>. Assumes the
+# branch has no worktree yet. $1 = branch, $2 = optional start-point for a NEW branch (defaults to HEAD).
+# Sets reply=(<worktree-path> <base>), where <base> is the branch a NEW branch was cut 
+# from — empty when adopting an existing local/origin branch (git's own output already reports those).
+function _gwt_create_worktree() {
+    local branch="$1" startpoint="$2" wt base="" REPLY
+    _gwt_wt_path "$branch" || return 1
+    wt="$REPLY"
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+        git worktree add "$wt" "$branch" >/dev/null || return 1
+    elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        _gwt_note "'$branch' already exists on origin — creating from origin/$branch, not HEAD"
+        git worktree add --track -b "$branch" "$wt" "origin/$branch" >/dev/null || return 1
+    else
+        local sp="${startpoint:-HEAD}"
+        git worktree add -b "$branch" "$wt" "$sp" >/dev/null || return 1
+        # Resolve a bare HEAD to the current branch name (short SHA if detached).
+        [[ "$sp" == HEAD ]] && sp="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)"
+        base="$sp"
+    fi
+    reply=("$wt" "$base")
+}
+
+# Seed a new worktree with the gitignored files this repo needs: copy each present
+# $GWT_COPY_FILES entry from <src-worktree> ($1) into <dst-worktree> ($2). Worktrees
+# don't inherit gitignored files, so anything untracked (e.g. .env) must be copied.
+function _gwt_seed_files() {
+    local src="$1" dst="$2" f
+    for f in $GWT_COPY_FILES; do
+        [[ -f "$src/$f" ]] || continue
+        mkdir -p "$dst/${f:h}"
+        cp "$src/$f" "$dst/$f"
+    done
 }
 
 # ---------------------------------------------------------------------------
