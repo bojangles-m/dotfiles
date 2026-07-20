@@ -2,7 +2,7 @@
 # Configuration — user-settable knobs (export before the shell loads)
 # ---------------------------------------------------------------------------
 
-GWT_VERSION="1.0.3"
+GWT_VERSION="1.0.5"
 
 # ---------------------------------------------------------------------------
 # All worktrees live under $GWT_WORKTREE_DIR/<repo-name>/<branch>.
@@ -48,19 +48,28 @@ GWT_VERSION="1.0.3"
 alias gwp='git worktree prune'
 
 # Help for the gw worktree commands.
+#   gwt        commands only         gwt -h   commands + configuration
+#   gwt -c     configuration only    gwt -v   version
 function gwt() {
+    [[ "$1" == -v ]] && { _gwt_info "gwt $GWT_VERSION"; return; }
+    _gwt_help_header                               # banner on every help mode
     case "$1" in
-        -v) _gwt_info "gwt $GWT_VERSION" ;;
-        -h) _gwt_help ;;
-        *)  _gwt_help; echo;;
+        -c) _gwt_help_config ;;                    # -c: configuration only
+        -h) _gwt_help; echo; _gwt_help_config ;;   # -h: everything (commands + config)
+        *)  _gwt_help; echo ;;                      # bare: commands only
     esac
 }
 
-function _gwt_help() {
+function _gwt_help_header() {
     cat <<EOF
 gwt: v$GWT_VERSION
 Worktrees are created under: $GWT_WORKTREE_DIR/<repo>/<branch>
 
+EOF
+}
+
+function _gwt_help() {
+    cat <<EOF
 Usage:
   gwa [-c | -o] [-m] [<branch>] [<start-point>]
       Create a new worktree. No <branch>: fzf picker — pick an existing branch to adopt,
@@ -72,7 +81,7 @@ Usage:
                 current HEAD. --from-main. Ignored if <branch> already exists.
 
   gwo [<branch>]                    Open a worktree in your editor. No <branch>: fzf picker (else the most recent).
-  gws [-o] [<branch>]              Switch to a worktree (cd). No <branch>: fzf picker; -o also opens it in your editor.
+  gws [-o] [<branch>]               Switch to a worktree (cd). No <branch>: fzf picker; -o also opens it in your editor.
 
   gwr [-d | -D] [<branch>] [--force]
       Remove a worktree. The branch is KEPT unless you pass -d/-D.
@@ -82,8 +91,7 @@ Usage:
           -D    Also delete the branch — force: deletes even with unmerged commits.
 
   gwclean [-n | --dry-run]
-      Remove "stale" worktrees: branch has no commits of its own beyond the default
-      branch (merged or never diverged), or its remote branch is gone.
+      Remove stale worktrees: branches with no unique commits (merged/never diverged) or deleted remotes.
       Branches with unpushed/unmerged commits are KEPT — use gwr for those.
           -n    Dry run: preview what would be removed; removes nothing.
 
@@ -91,8 +99,12 @@ Usage:
                                     ⚑ stale = a gwclean candidate. -a = every repo under GWT_WORKTREE_DIR;
                                     -p = also show each worktree's path + short SHA (replaces plain 'git worktree list').
   gwp                               Prune stale worktree entries.
-  gwt [-v | -h]                     Show this help or version.
+  gwt [-h | -c | -v]                Help: bare = commands · -h = full · -c = Configuration only · -v = version.
+EOF
+}
 
+function _gwt_help_config() {
+    cat <<EOF
 Configuration:
   Set these in your shell (or ~/.zshrc). They affect the next \`gwa\` command.
         GWT_WORKTREE_DIR            base folder that holds all worktrees
@@ -104,6 +116,8 @@ Configuration:
         GWT_OPEN_CMD                command used to open a worktree ({} = its path)
                                     default: code -n && code -a {}
                                     e.g.  export GWT_OPEN_CMD='cursor {}'
+        GWT_PICKER_OPTIONS          fzf options for the interactive branch picker (if installed)
+                                    e.g.  export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
 EOF
 }
 
@@ -369,7 +383,7 @@ function gwclean() {
         _gwt_info "gwclean: skipped ${#skipped}:"
         for item in $skipped; do _gwt_info "  $item"; done
     fi
-    [[ -n "$dry" ]] && (( ${#removed} )) && _gwt_info "gwclean: dry run — nothing removed; run 'gwclean' to apply"
+    [[ -n "$dry" ]] && (( ${#removed} ))
 }
 
 # ---------------------------------------------------------------------------
