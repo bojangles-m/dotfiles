@@ -52,6 +52,7 @@ alias gwp='git worktree prune'
 #   gwt -c     configuration only    gwt -v   version
 function gwt() {
     [[ "$1" == -v ]] && { _gwt_info "gwt $GWT_VERSION"; return; }
+    [[ "$1" == doctor ]] && { _gwt_doctor; return; }
     _gwt_help_header                               # banner on every help mode
     case "$1" in
         -c) _gwt_help_config ;;                    # -c: configuration only
@@ -99,6 +100,8 @@ Usage:
                                     ⚑ stale = a gwclean candidate. -a = every repo under GWT_WORKTREE_DIR;
                                     -p = also show each worktree's path + short SHA (replaces plain 'git worktree list').
   gwp                               Prune stale worktree entries.
+
+  gwt doctor                        Check your setup — required + optional deps, with fix suggestions.
   gwt [-h | -c | -v]                Help: bare = commands · -h = full · -c = Configuration only · -v = version.
 EOF
 }
@@ -119,6 +122,89 @@ Configuration:
         GWT_PICKER_OPTIONS          fzf options for the interactive branch picker (if installed)
                                     e.g.  export GWT_PICKER_OPTIONS='--height=60% --preview-window=down'
 EOF
+}
+
+# ---------------------------------------------------------------------------
+# Doctor — environment & config diagnostics (read-only; suggests, never fixes)
+# ---------------------------------------------------------------------------
+# gwt doctor: report required + optional dependencies, each ✓/✗/? with a copy-pasteable fix.
+function _gwt_doctor() {
+    local g="" r="" y="" bld="" x=""
+    if [[ -t 1 ]]; then g=$'\e[32m' r=$'\e[31m' y=$'\e[33m' bld=$'\e[1m' x=$'\e[0m'; fi
+    local ok="${g}✓${x}" bad="${r}✗${x}" maybe="${y}?${x}"
+
+    local -a req opt
+    local req_ok=0 req_fail=0 opt_miss=0
+
+    # --- Required: git >= 2.7 (worktree / --porcelain / for-each-ref formats) ---
+    autoload -Uz is-at-least
+    local gv="${$(git --version 2>/dev/null)##git version }"; gv="${gv%% *}"
+    if [[ -n "$gv" ]] && is-at-least 2.7 "$gv"; then
+        req+=("  $ok  git $gv"); (( req_ok++ ))
+    elif [[ -n "$gv" ]]; then
+        req+=("  $bad  git $gv   need >= 2.7 (worktree/porcelain).   Fix: upgrade git"); (( req_fail++ ))
+    else
+        req+=("  $bad  git not found.   Fix: xcode-select --install"); (( req_fail++ ))
+    fi
+
+    # --- Required: GWT_WORKTREE_DIR set + exists-or-creatable (never created here) ---
+    local d="$GWT_WORKTREE_DIR"
+    if [[ -z "$d" ]]; then
+        req+=("  $bad  GWT_WORKTREE_DIR  empty.   Fix: export GWT_WORKTREE_DIR=~/dev/workspace"); (( req_fail++ ))
+    elif [[ -d "$d" ]]; then
+        if [[ -w "$d" ]]; then
+            req+=("  $ok  GWT_WORKTREE_DIR=$d  (exists, writable)"); (( req_ok++ ))
+        else
+            req+=("  $bad  GWT_WORKTREE_DIR=$d  not writable.   Fix: fix perms or pick another path"); (( req_fail++ ))
+        fi
+    else
+        local anc="$d"; while [[ ! -d "$anc" ]]; do anc="${anc:h}"; done
+        if [[ -w "$anc" ]]; then
+            req+=("  $ok  GWT_WORKTREE_DIR=$d  (will be created)"); (( req_ok++ ))
+        else
+            req+=("  $bad  GWT_WORKTREE_DIR=$d  can't create ($anc not writable).   Fix: pick a writable path"); (( req_fail++ ))
+        fi
+    fi
+
+    # --- Optional: each ✗ degrades one feature; ? = can't verify statically ---
+    if (( $+commands[fzf] )); then
+        opt+=("  $ok  fzf         interactive pickers")
+    else
+        opt+=("  $bad  fzf         pickers off — type branch names.   Fix: brew install fzf"); (( opt_miss++ ))
+    fi
+
+    local -a _tok; _tok=(${(z)GWT_OPEN_CMD}); local ed="${_tok[1]}"
+    if [[ -n "$ed" ]] && (( $+commands[$ed] )); then
+        opt+=("  $ok  editor      '$ed'  (gwo / -o)")
+    else
+        opt+=("  $maybe  editor      can't verify GWT_OPEN_CMD='$GWT_OPEN_CMD' — tried when you open")
+    fi
+
+    if (( $+commands[pbcopy] )); then
+        opt+=("  $ok  pbcopy      gwa -c clipboard")
+    else
+        opt+=("  $bad  pbcopy      gwa -c copy skipped (macOS only)"); (( opt_miss++ ))
+    fi
+
+    if (( $+functions[compdef] )); then
+        opt+=("  $ok  completion  Tab")
+    else
+        opt+=("  $bad  completion  off — ensure 'compinit' runs in your zsh setup"); (( opt_miss++ ))
+    fi
+
+    # --- Summary line (first), then the two groups ---
+    local sreq sopt scol="$bld"
+    if (( req_fail )); then sreq="${req_fail} required FAILING"; scol="${bld}${r}"
+    else                    sreq="${req_ok} required OK"; fi
+    if (( opt_miss )); then sopt="${opt_miss} optional missing"
+    else                    sopt="all optional available"; fi
+    print -r -- "${scol}${sreq}, ${sopt}${x}"
+    print -r --
+    print -r -- "Required"; print -rl -- $req
+    print -r --
+    print -r -- "Optional"; print -rl -- $opt
+
+    return $(( req_fail ? 1 : 0 ))
 }
 
 # Worktree at $GWT_WORKTREE_DIR/<repo>/<branch>
