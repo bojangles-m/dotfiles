@@ -50,3 +50,19 @@ done
 # ------------------------------------------
 export PNPM_HOME="/Users/bojanmazej/Library/pnpm"
 export PATH="$PNPM_HOME:$PATH"
+
+# ------------------------------------------
+# GWT (git worktree toolkit) settings
+# ------------------------------------------
+
+# Gitignored files copied into each new worktree (adjust to taste)
+GWT_COPY_FILES=(
+    .env                                     # FE
+    application/config/config-private.php    # BE
+    .vscode/launch.json
+    .vscode/settings.json
+)
+
+
+# gwt (git worktree toolkit)
+source /Users/bojan.mazej/.gwt/gwt.zsh
