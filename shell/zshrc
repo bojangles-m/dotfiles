@@ -63,6 +63,8 @@ GWT_COPY_FILES=(
     .vscode/settings.json
 )
 
+# Run command inside the new worktree after it is created
+GWT_POST_INIT_CMD='pnpm install'
 
 # gwt (git worktree toolkit)
 source /Users/bojan.mazej/.gwt/gwt.zsh
