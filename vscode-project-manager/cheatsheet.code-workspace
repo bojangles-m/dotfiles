@@ -1,11 +1,14 @@
 {
   "folders": [
     {
-      "path": ".."
+      "path": "..",
     },
     {
-      "path": "../../Stuff/Projects/cheatsheet"
-    }
+      "path": "../../Stuff/Projects/cheatsheet",
+    },
+    {
+      "path": "../../Stuff/Projects/gwt",
+    },
   ],
-  "settings": {}
+  "settings": {},
 }
