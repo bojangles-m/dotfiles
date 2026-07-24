@@ -9,7 +9,6 @@ alias c="clear"
 alias e="exit"
 alias h="history"
 alias hg="history | grep"
-alias ssh="ssh -X"
 
 # navigation
 alias .="cd /"
