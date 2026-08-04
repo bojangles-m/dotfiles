@@ -66,8 +66,11 @@ GWT_COPY_FILES=(
 # Run command inside the new worktree after it is created
 GWT_POST_INIT_CMD='pnpm install'
 
-# Run post inti in the background so `gwa` opens/returns immediately
-export GWT_POST_INIT_DETACH=1
+# Run post init in the background so `gwa` opens/returns immediately
+GWT_POST_INIT_DETACH=1
+
+# {ws} = a saved .code-workspace
+GWT_OPEN_CMD='code -n {ws}'
 
 # gwt (git worktree toolkit)
 source /Users/bojan.mazej/.gwt/gwt.zsh
